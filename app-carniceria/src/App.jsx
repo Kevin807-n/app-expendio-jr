@@ -33,7 +33,7 @@ function useLocalStorage(key, initialValue) {
 
 // --- DATOS INICIALES ---
 const PRODUCTOS_COMUNES = [
-  "Hígado", "Mondongo", "Bofe", "Corazón", "Ubre", "Malaya", 
+  "Hígado", "Mondongo", "Chunchullo", "Riñón", "Pajarilla", "Lenguas", "Bofe", "Corazón", "Ubre", "Malaya", 
   "Chocosuela", "Hueso", "Orejas", "Pezuña", "Tocino", 
   "Bofe Cerdo", "corazón de Cerdo", "Carne", "Pata de Res", "Buches", "Tripita", "Entresijos"
 ];
