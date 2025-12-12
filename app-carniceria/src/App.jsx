@@ -35,7 +35,7 @@ function useLocalStorage(key, initialValue) {
 const PRODUCTOS_COMUNES = [
   "Hígado", "Mondongo", "Bofe", "Corazón", "Ubre", "Malaya", 
   "Chocosuela", "Hueso", "Orejas", "Pezuña", "Tocino", 
-  "Bofe Cerdo", "corazón de Cerdo", "Carne", "Pata de Res", "Buches", "Tripita", "Entresijos"
+  "Bofe Cerdo", "Carne", "Pata de Res", "Buches", "Tripita", "Entresijos"
 ];
 
 const App = () => {
@@ -43,21 +43,21 @@ const App = () => {
   const [view, setView] = useState('home'); 
   
   // DATOS PERSISTENTES
-  const [salesHistory, setSalesHistory] = useLocalStorage('meatAppHistoryV17', []);
-  const [tripHistory, setTripHistory] = useLocalStorage('meatAppTripHistoryV17', []); 
-  const [savedClients, setSavedClients] = useLocalStorage('meatAppClientsV17', []);
-  const [invoiceCounter, setInvoiceCounter] = useLocalStorage('meatAppCounterV17', 60); 
-  const [activeTrip, setActiveTrip] = useLocalStorage('meatAppTripV17', null);
-  const [tripExpenses, setTripExpenses] = useLocalStorage('meatAppExpensesV17', []);
-  const [savedRoutes, setSavedRoutes] = useLocalStorage('meatAppRoutesV17', [
+  const [salesHistory, setSalesHistory] = useLocalStorage('meatAppHistoryV20', []);
+  const [tripHistory, setTripHistory] = useLocalStorage('meatAppTripHistoryV20', []); 
+  const [savedClients, setSavedClients] = useLocalStorage('meatAppClientsV20', []);
+  const [invoiceCounter, setInvoiceCounter] = useLocalStorage('meatAppCounterV20', 60); 
+  const [activeTrip, setActiveTrip] = useLocalStorage('meatAppTripV20', null);
+  const [tripExpenses, setTripExpenses] = useLocalStorage('meatAppExpensesV20', []);
+  const [savedRoutes, setSavedRoutes] = useLocalStorage('meatAppRoutesV20', [
     { id: 1, nombre: "Ruta Habitual", origen: "Neiva", destino: "Bogotá", distancia: 300 },
     { id: 2, nombre: "Costa", origen: "Bogotá", destino: "Cartagena", distancia: 1050 }
   ]);
 
   // ESTADOS DE TRABAJO
-  const [cart, setCart] = useLocalStorage('meatAppCurrentCartV17', []); 
-  const [client, setClient] = useLocalStorage('meatAppCurrentClientV17', { name: '', id: '', address: '', phone: '' }); 
-  const [pendingSales, setPendingSales] = useLocalStorage('meatAppPendingSalesV17', []);
+  const [cart, setCart] = useLocalStorage('meatAppCurrentCartV20', []); 
+  const [client, setClient] = useLocalStorage('meatAppCurrentClientV20', { name: '', id: '', address: '', phone: '' }); 
+  const [pendingSales, setPendingSales] = useLocalStorage('meatAppPendingSalesV20', []);
   const [paymentMethod, setPaymentMethod] = useState('Contado');
 
   // ESTADOS TEMPORALES
@@ -78,7 +78,6 @@ const App = () => {
 
   // --- CALCULOS FINANCIEROS ---
   const formatCurrency = (value) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(value);
-  
   const totalGlobalSales = salesHistory.reduce((acc, s) => acc + (s.total || 0), 0);
   const currentTripExpensesTotal = tripExpenses.reduce((acc, item) => acc + parseFloat(item.value || 0), 0);
   const historicalTripExpensesTotal = tripHistory.reduce((acc, trip) => acc + (trip.totalExpenses || 0), 0);
@@ -186,16 +185,9 @@ const App = () => {
       setNewExpense({ type: '', value: '', note: '' }); 
   };
 
-  // --- FUNCIÓN DE FINALIZAR VIAJE ---
   const endTrip = () => {
-     if(!activeTrip) {
-         // Si por alguna razón el estado falló, reseteamos a home
-         alert("Error: No se detectó viaje activo.");
-         setView('home');
-         return;
-     }
-     
-     if(!window.confirm("¿Seguro que deseas finalizar el viaje y guardarlo en la bitácora?")) return;
+     if(!activeTrip) { alert("No hay viaje activo."); return; }
+     if(!window.confirm("¿Finalizar viaje y guardar en bitácora?")) return;
      
      const finalSales = getSalesInCurrentTrip();
      const finalExpenses = tripExpenses.reduce((acc, item) => acc + parseFloat(item.value || 0), 0);
@@ -211,8 +203,7 @@ const App = () => {
      setTripHistory([tripSummary, ...tripHistory]);
      setActiveTrip(null);
      setTripExpenses([]); 
-     
-     alert("¡Viaje finalizado exitosamente!");
+     alert("¡Viaje finalizado!");
      setView('trip_history'); 
   };
 
@@ -272,7 +263,7 @@ const App = () => {
           </div>
         )}
 
-        {/* ... (Vistas VENDER, CLIENTES se mantienen igual) ... */}
+        {/* VISTAS INTERMEDIAS (Se mantienen igual) */}
         {view === 'pos' && (
           <div className="pb-20 space-y-4 animate-in slide-in-from-right duration-200">
             {pendingSales.length > 0 && (
@@ -507,7 +498,6 @@ const App = () => {
           </div>
         )}
 
-        {/* ... (VISTAS HISTORIAL DE VIAJES, HISTORIAL DE FACTURAS Y BILLETERA SE MANTIENEN IGUAL) ... */}
         {view === 'trip_history' && (
            <div className="pb-20 space-y-4 animate-in slide-in-from-right duration-200">
                <div className="bg-white p-4 rounded-xl border border-gray-200 mb-2"><h2 className="font-bold text-lg">Bitácora de Viajes</h2><p className="text-xs text-gray-500">Resumen financiero y de carga</p></div>
