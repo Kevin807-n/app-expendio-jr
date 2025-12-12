@@ -3,7 +3,7 @@ import {
   Save, Share2, Plus, Trash2, History, FileText, ArrowLeft, 
   Truck, CheckCircle, Calculator, MapPin, Navigation, 
   DollarSign, Coffee, Wrench, Fuel, Bed, AlertTriangle, Printer, 
-  Users, UserPlus, Edit, UserCog, X, Search, Settings, Map, TrendingUp, Package, Calendar, Clock, MapPinned, PauseCircle, PlayCircle, CreditCard, Banknote
+  Users, UserPlus, Edit, UserCog, X, Search, Settings, Map, TrendingUp, Package, Calendar, Clock, MapPinned, PauseCircle, PlayCircle, CreditCard, Banknote, ChevronDown, ChevronUp
 } from 'lucide-react';
 
 // --- HOOK DE GUARDADO SEGURO ---
@@ -43,26 +43,27 @@ const App = () => {
   const [view, setView] = useState('home'); 
   
   // DATOS PERSISTENTES
-  const [salesHistory, setSalesHistory] = useLocalStorage('meatAppHistoryV14', []);
-  const [tripHistory, setTripHistory] = useLocalStorage('meatAppTripHistoryV14', []); 
-  const [savedClients, setSavedClients] = useLocalStorage('meatAppClientsV14', []);
-  const [invoiceCounter, setInvoiceCounter] = useLocalStorage('meatAppCounterV14', 60); 
-  const [activeTrip, setActiveTrip] = useLocalStorage('meatAppTripV14', null);
-  const [tripExpenses, setTripExpenses] = useLocalStorage('meatAppExpensesV14', []);
-  const [savedRoutes, setSavedRoutes] = useLocalStorage('meatAppRoutesV14', [
+  const [salesHistory, setSalesHistory] = useLocalStorage('meatAppHistoryV16', []);
+  const [tripHistory, setTripHistory] = useLocalStorage('meatAppTripHistoryV16', []); 
+  const [savedClients, setSavedClients] = useLocalStorage('meatAppClientsV16', []);
+  const [invoiceCounter, setInvoiceCounter] = useLocalStorage('meatAppCounterV16', 60); 
+  const [activeTrip, setActiveTrip] = useLocalStorage('meatAppTripV16', null);
+  const [tripExpenses, setTripExpenses] = useLocalStorage('meatAppExpensesV16', []);
+  const [savedRoutes, setSavedRoutes] = useLocalStorage('meatAppRoutesV16', [
     { id: 1, nombre: "Ruta Habitual", origen: "Neiva", destino: "Bogotá", distancia: 300 },
     { id: 2, nombre: "Costa", origen: "Bogotá", destino: "Cartagena", distancia: 1050 }
   ]);
 
   // ESTADOS DE TRABAJO
-  const [cart, setCart] = useLocalStorage('meatAppCurrentCartV14', []); 
-  const [client, setClient] = useLocalStorage('meatAppCurrentClientV14', { name: '', id: '', address: '', phone: '' }); 
-  const [pendingSales, setPendingSales] = useLocalStorage('meatAppPendingSalesV14', []);
+  const [cart, setCart] = useLocalStorage('meatAppCurrentCartV16', []); 
+  const [client, setClient] = useLocalStorage('meatAppCurrentClientV16', { name: '', id: '', address: '', phone: '' }); 
+  const [pendingSales, setPendingSales] = useLocalStorage('meatAppPendingSalesV16', []);
   const [paymentMethod, setPaymentMethod] = useState('Contado');
 
   // ESTADOS TEMPORALES
   const [editingClient, setEditingClient] = useState(null);
   const [currentInvoice, setCurrentInvoice] = useState(null);
+  const [expandedTripId, setExpandedTripId] = useState(null);
   
   // Inputs
   const [selectedProduct, setSelectedProduct] = useState('');
@@ -77,13 +78,14 @@ const App = () => {
 
   // --- CALCULOS FINANCIEROS ---
   const formatCurrency = (value) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(value);
-  const totalGlobalSales = salesHistory.reduce((acc, s) => acc + s.total, 0);
+  
+  const totalGlobalSales = salesHistory.reduce((acc, s) => acc + (s.total || 0), 0);
   const currentTripExpensesTotal = tripExpenses.reduce((acc, item) => acc + parseFloat(item.value || 0), 0);
   const historicalTripExpensesTotal = tripHistory.reduce((acc, trip) => acc + (trip.totalExpenses || 0), 0);
   const totalGlobalExpenses = currentTripExpensesTotal + historicalTripExpensesTotal;
 
   const getSalesInCurrentTrip = () => {
-    if (!activeTrip) return 0;
+    if (!activeTrip || !activeTrip.startDate) return 0;
     const tripStart = new Date(activeTrip.startDate).getTime();
     return salesHistory.filter(sale => sale.timestamp >= tripStart).reduce((acc, sale) => acc + sale.total, 0);
   };
@@ -113,7 +115,6 @@ const App = () => {
     const now = new Date();
     
     let formattedDueDate = ""; 
-    
     if (paymentMethod === 'Credito') {
         const dueDateObj = new Date(now);
         dueDateObj.setDate(dueDateObj.getDate() + 30); 
@@ -168,12 +169,62 @@ const App = () => {
   const deleteTripFromHistory = (id) => { if(window.confirm("¿Borrar este viaje?")) setTripHistory(tripHistory.filter(t => t.id !== id)); };
   const saveNewRoute = () => { if(!newRoute.origen || !newRoute.destino) return alert("Origen y Destino obligatorios"); const nombreFinal = newRoute.nombre || `${newRoute.origen} - ${newRoute.destino}`; setSavedRoutes([...savedRoutes, { ...newRoute, nombre: nombreFinal, id: Date.now() }]); setNewRoute({ nombre: '', origen: '', destino: '', distancia: '' }); setShowRouteForm(false); };
   const deleteRoute = (id) => { if(window.confirm("¿Borrar ruta?")) setSavedRoutes(savedRoutes.filter(r => r.id !== id)); };
-  const startTrip = (ruta) => { if(activeTrip && !window.confirm("¿Reiniciar viaje activo?")) return; setActiveTrip({ id: Date.now(), ruta, startDate: new Date(), cargo: [] }); setTripExpenses([]); setView('trip'); };
+  
+  const startTrip = (ruta) => { 
+      if(activeTrip && !window.confirm("¿Reiniciar viaje activo?")) return; 
+      setActiveTrip({ id: Date.now(), ruta, startDate: new Date(), cargo: [] }); 
+      setTripExpenses([]); 
+      setView('trip'); 
+  };
+  
   const addCargo = () => { if(!cargoItem.product || !cargoItem.weight) return alert("Faltan datos"); const newLoad = [...(activeTrip.cargo || []), { ...cargoItem, id: Date.now() }]; setActiveTrip({ ...activeTrip, cargo: newLoad }); setCargoItem({ product: '', weight: '' }); };
   const removeCargo = (id) => { const newLoad = activeTrip.cargo.filter(c => c.id !== id); setActiveTrip({ ...activeTrip, cargo: newLoad }); };
-  const addExpense = (type) => { if (!newExpense.value) return alert("Ingresa valor"); setTripExpenses([{ id: Date.now(), type, value: parseFloat(newExpense.value), note: newExpense.note, time: new Date().toLocaleTimeString('es-CO', {hour: '2-digit', minute:'2-digit'}) }, ...tripExpenses]); setNewExpense({ type: '', value: '', note: '' }); };
-  const endTrip = () => { if(!activeTrip) return; if(!window.confirm("¿Finalizar viaje?")) return; const tripSummary = { ...activeTrip, endDate: new Date(), totalSales: getSalesInCurrentTrip(), totalExpenses: currentTripExpensesTotal, expensesList: [...tripExpenses] }; setTripHistory([tripSummary, ...tripHistory]); setActiveTrip(null); setTripExpenses([]); alert("¡Viaje finalizado!"); };
-  const getDuration = (start, end) => { const diff = new Date(end) - new Date(start); const hours = Math.floor(diff / (1000 * 60 * 60)); return `${hours}h ${Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))}m`; };
+  
+  const addExpense = (type) => { 
+      if (!newExpense.value) return alert("Ingresa valor"); 
+      setTripExpenses([{ id: Date.now(), type, value: parseFloat(newExpense.value), note: newExpense.note, time: new Date().toLocaleTimeString('es-CO', {hour: '2-digit', minute:'2-digit'}) }, ...tripExpenses]); 
+      setNewExpense({ type: '', value: '', note: '' }); 
+  };
+
+  // --- FUNCIÓN DE FINALIZAR VIAJE (CORREGIDA Y ROBUSTA) ---
+  const endTrip = () => {
+     if(!activeTrip) {
+         alert("No hay viaje activo para finalizar.");
+         return;
+     }
+     
+     if(!window.confirm("¿Seguro que deseas finalizar el viaje y guardarlo en la bitácora?")) return;
+     
+     // 1. Calcular totales en el momento
+     const finalSales = getSalesInCurrentTrip();
+     const finalExpenses = tripExpenses.reduce((acc, item) => acc + parseFloat(item.value || 0), 0);
+
+     // 2. Crear resumen
+     const tripSummary = {
+         ...activeTrip,
+         endDate: new Date(),
+         totalSales: finalSales,
+         totalExpenses: finalExpenses,
+         expensesList: [...tripExpenses] // Copia profunda de gastos
+     };
+
+     // 3. Guardar en historial
+     setTripHistory([tripSummary, ...tripHistory]);
+     
+     // 4. Limpiar estado actual
+     setActiveTrip(null);
+     setTripExpenses([]); 
+     
+     alert("¡Viaje finalizado exitosamente!");
+     setView('trip_history'); // Llevar a la bitácora para confirmar
+  };
+
+  const getDuration = (start, end) => { 
+      if(!start || !end) return "-";
+      const diff = new Date(end) - new Date(start); 
+      const hours = Math.floor(diff / (1000 * 60 * 60)); 
+      return `${hours}h ${Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))}m`; 
+  };
 
   // --- RENDERIZADO ---
   return (
@@ -224,7 +275,7 @@ const App = () => {
           </div>
         )}
 
-        {/* VISTA: VENDER (POS) */}
+        {/* ... (Vistas VENDER, CLIENTES se mantienen igual) ... */}
         {view === 'pos' && (
           <div className="pb-20 space-y-4 animate-in slide-in-from-right duration-200">
             {pendingSales.length > 0 && (
@@ -351,6 +402,7 @@ const App = () => {
           </div>
         )}
 
+        {/* ... (VISTA DE VIAJE - ACTUALIZADA) ... */}
         {view === 'trip' && (
           <div className="pb-20 animate-in slide-in-from-right duration-200">
              {!activeTrip ? (
@@ -398,7 +450,8 @@ const App = () => {
                           </div>
                           <div className="flex gap-2 mt-4">
                              <button onClick={() => window.open(`https://waze.com/ul?q=${activeTrip.ruta.destino}`, '_blank')} className="bg-white text-blue-900 px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 shadow-lg"><Navigation size={16}/> Waze</button>
-                             <button onClick={endTrip} className="bg-red-500/80 hover:bg-red-500 text-white px-4 py-2 rounded-lg font-bold text-sm backdrop-blur-sm">Finalizar</button>
+                             {/* BOTÓN FINALIZAR ARREGLADO */}
+                             <button onClick={endTrip} className="bg-red-500/90 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-lg">Finalizar</button>
                           </div>
                       </div>
                       <Map size={140} className="absolute -bottom-6 -right-6 text-white opacity-10"/>
@@ -459,11 +512,14 @@ const App = () => {
           </div>
         )}
 
+        {/* ... (VISTAS HISTORIAL DE VIAJES, HISTORIAL DE FACTURAS Y BILLETERA SE MANTIENEN IGUAL) ... */}
         {view === 'trip_history' && (
            <div className="pb-20 space-y-4 animate-in slide-in-from-right duration-200">
                <div className="bg-white p-4 rounded-xl border border-gray-200 mb-2"><h2 className="font-bold text-lg">Bitácora de Viajes</h2><p className="text-xs text-gray-500">Resumen financiero y de carga</p></div>
                {tripHistory.map(trip => {
                    const profit = (trip.totalSales || 0) - (trip.totalExpenses || 0);
+                   const isExpanded = expandedTripId === trip.id;
+                   
                    return (
                    <div key={trip.id} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm space-y-3 relative">
                        <button onClick={() => deleteTripFromHistory(trip.id)} className="absolute top-2 right-2 text-red-300 hover:text-red-500"><Trash2 size={16}/></button>
@@ -477,6 +533,22 @@ const App = () => {
                            <div className={`p-2 rounded text-center ${profit >= 0 ? 'bg-blue-50' : 'bg-orange-50'}`}><span className={`block text-[10px] font-bold uppercase ${profit >= 0 ? 'text-blue-700' : 'text-orange-700'}`}>Ganancia</span><span className={`font-bold ${profit >= 0 ? 'text-blue-800' : 'text-orange-800'}`}>{formatCurrency(profit)}</span></div>
                        </div>
                        {trip.cargo && trip.cargo.length > 0 && (<div className="bg-gray-50 p-2 rounded border border-gray-100"><p className="text-[10px] font-bold text-gray-500 uppercase mb-1">Carga Transportada:</p><div className="flex flex-wrap gap-1">{trip.cargo.map((c, i) => (<span key={i} className="text-[10px] bg-white border px-1.5 py-0.5 rounded text-gray-600">{c.product} ({c.weight}kg)</span>))}</div></div>)}
+                       <div className="border-t border-gray-100 pt-2">
+                           <button onClick={() => setExpandedTripId(isExpanded ? null : trip.id)} className="w-full flex items-center justify-center gap-1 text-xs text-gray-500 font-bold hover:text-blue-600 py-1">
+                               {isExpanded ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}{isExpanded ? "Ocultar Gastos" : "Ver Detalle de Gastos"}
+                           </button>
+                           {isExpanded && (
+                               <div className="mt-2 space-y-1 bg-gray-50 p-2 rounded text-xs animate-in slide-in-from-top-2">
+                                   {(!trip.expensesList || trip.expensesList.length === 0) ? <p className="text-center text-gray-400 italic">No hubo gastos registrados.</p> : (
+                                       trip.expensesList.map((exp, idx) => (
+                                           <div key={idx} className="flex justify-between items-center border-b border-gray-200 last:border-0 pb-1">
+                                               <div className="flex items-center gap-2"><span className="font-bold text-gray-700">{exp.type}</span><span className="text-gray-500 truncate max-w-[150px]">{exp.note}</span></div><span className="font-bold text-red-500">-{formatCurrency(exp.value)}</span>
+                                           </div>
+                                       ))
+                                   )}
+                               </div>
+                           )}
+                       </div>
                    </div>
                )})}
            </div>
@@ -519,138 +591,110 @@ const App = () => {
            </div>
         )}
 
-        {/* VISTA: FACTURA (DISEÑO LEGAL V13) */}
+        {/* VISTA: FACTURA (DISEÑO MEJORADO PARA MÓVIL) */}
         {view === 'invoice' && currentInvoice && (
-           // CORRECCIÓN 1: print:static y print:overflow-visible para evitar doble página
-           <div className="fixed inset-0 bg-gray-100 z-50 overflow-y-auto animate-in zoom-in duration-200 print:static print:bg-white print:overflow-visible">
-              <div className="bg-white p-4 shadow-sm flex justify-between items-center sticky top-0 print:hidden">
+           <div className="fixed inset-0 bg-white z-50 flex flex-col h-full print:static print:h-auto print:w-full">
+              
+              {/* HEADER FIJO EN PANTALLA */}
+              <div className="flex-none bg-white p-4 shadow-sm flex justify-between items-center border-b print:hidden">
                  <button onClick={() => setView('history')} className="flex items-center gap-1 font-bold text-gray-600"><ArrowLeft size={20}/> Volver</button>
                  <span className="font-bold text-gray-800">Vista Previa</span>
                  <div className="w-8"></div>
               </div>
               
-              {/* ZONA DE IMPRESIÓN - ESTILO EXACTO A LA FOTO */}
-              <div className="p-4 print:p-0 print:m-0">
-                 <div className="bg-white shadow-lg p-6 max-w-2xl mx-auto print:shadow-none print:w-full print:max-w-none print:p-0" style={{fontFamily: 'Arial, sans-serif'}}>
+              {/* CUERPO SCROLLABLE (FACTURA) */}
+              <div className="flex-1 overflow-y-auto p-2 bg-gray-100 print:overflow-visible print:bg-white print:p-0">
+                 <div className="bg-white shadow-lg p-4 md:p-8 mx-auto max-w-2xl print:shadow-none print:w-full print:max-w-none print:p-0" style={{fontFamily: 'Arial, sans-serif'}}>
                     
                     {/* ENCABEZADO */}
                     <div className="flex justify-between items-start border-b-2 border-blue-900 pb-2 mb-2">
-                        <div className="w-24 h-24 relative mr-4">
-                            {/* LOGO */}
+                        <div className="w-20 h-20 md:w-24 md:h-24 relative mr-2">
                             <img src="/logo-jr.png" alt="JR" className="w-full h-full object-contain" onError={(e) => {e.target.style.display='none';}}/>
-                            <div className="absolute inset-0 flex items-center justify-center border-2 border-dashed border-gray-300 -z-10 text-[10px] text-gray-400 text-center leading-tight">Logo<br/>(logo-jr.png)</div>
+                            <div className="absolute inset-0 flex items-center justify-center border-2 border-dashed border-gray-300 -z-10 text-[8px] text-gray-400 text-center leading-tight">Logo</div>
                         </div>
                         <div className="flex-1 text-center">
-                            <h1 className="text-2xl font-black text-blue-900 uppercase leading-none tracking-tighter">EXPENDIO DE VÍSCERAS JR.</h1>
-                            <h2 className="text-sm font-bold text-gray-800 mt-1 uppercase">ROMULO JIMENEZ ROA</h2>
-                            <p className="text-sm font-bold text-gray-700">Nit: 79.989.335 - 4</p>
-                            <p className="text-xs text-gray-600 font-bold">No Responsable IVA</p>
-                            <p className="text-[10px] text-gray-600 mt-1">Cra 22 No. 25B - 17 Sur * Cels: 312 300 8386 / 317 218 4533 Neiva - Huila</p>
+                            <h1 className="text-xl md:text-2xl font-black text-blue-900 uppercase leading-none tracking-tighter">EXPENDIO DE VÍSCERAS JR.</h1>
+                            <h2 className="text-xs md:text-sm font-bold text-gray-800 mt-1 uppercase">ROMULO JIMENEZ ROA</h2>
+                            <p className="text-xs md:text-sm font-bold text-gray-700">Nit: 79.989.335 - 4</p>
+                            <p className="text-[10px] md:text-xs text-gray-600 font-bold">No Responsable IVA</p>
+                            <p className="text-[8px] md:text-[10px] text-gray-600 mt-1">Cra 22 No. 25B - 17 Sur * Cels: 312 300 8386 / 317 218 4533 Neiva - Huila</p>
                         </div>
                     </div>
 
-                    {/* CAJA DE DATOS DE FACTURA */}
-                    <div className="border border-blue-900 mb-2 flex text-xs">
+                    {/* CAJA DE DATOS */}
+                    <div className="border border-blue-900 mb-2 flex text-[10px] md:text-xs">
                         <div className="border-r border-blue-900 p-1 flex-1">
-                            <div className="bg-blue-900 text-white font-bold px-1 text-center text-[10px]">FECHA EMISIÓN</div>
-                            <div className="text-center font-bold text-sm py-1">{currentInvoice.date}</div>
-                            <div className="text-center text-[9px] text-gray-500">{currentInvoice.time}</div>
+                            <div className="bg-blue-900 text-white font-bold px-1 text-center text-[8px]">FECHA EMISIÓN</div>
+                            <div className="text-center font-bold py-1">{currentInvoice.date}</div>
+                            <div className="text-center text-[8px] text-gray-500">{currentInvoice.time}</div>
                         </div>
                         <div className="border-r border-blue-900 p-1 flex-1">
-                            <div className="bg-blue-900 text-white font-bold px-1 text-center text-[10px]">FECHA VENCIMIENTO</div>
-                            <div className="text-center font-bold text-sm py-1">{currentInvoice.dueDate || ''}</div>
+                            <div className="bg-blue-900 text-white font-bold px-1 text-center text-[8px]">FECHA VENCIMIENTO</div>
+                            <div className="text-center font-bold py-1">{currentInvoice.dueDate || ''}</div>
                         </div>
-                        <div className="border-r border-blue-900 p-1 flex-[1.5] flex flex-col justify-center px-2">
-                            {/* CORRECCIÓN 2: Usar 'X' en vez de color de fondo para asegurar impresión */}
-                            <div className="flex items-center gap-2 mb-1">
-                                <div className="w-4 h-4 border border-black flex items-center justify-center text-xs font-bold leading-none">
-                                    {currentInvoice.paymentMethod === 'Contado' && 'X'}
-                                </div>
+                        <div className="border-r border-blue-900 p-1 flex-[1.5] flex flex-col justify-center px-1">
+                            <div className="flex items-center gap-1 mb-1">
+                                <div className="w-3 h-3 border border-black flex items-center justify-center text-[8px] font-bold leading-none">{currentInvoice.paymentMethod === 'Contado' && 'X'}</div>
                                 <span className="font-bold">Contado</span>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <div className="w-4 h-4 border border-black flex items-center justify-center text-xs font-bold leading-none">
-                                    {currentInvoice.paymentMethod === 'Credito' && 'X'}
-                                </div>
+                            <div className="flex items-center gap-1">
+                                <div className="w-3 h-3 border border-black flex items-center justify-center text-[8px] font-bold leading-none">{currentInvoice.paymentMethod === 'Credito' && 'X'}</div>
                                 <span className="font-bold">Crédito</span>
                             </div>
                         </div>
                         <div className="p-1 flex-[1.5] text-center flex flex-col justify-center">
-                            <div className="font-bold text-blue-900">FACTURA DE VENTA</div>
-                            <div className="text-2xl font-black text-red-600">{currentInvoice.invoiceNumber}</div>
+                            <div className="font-bold text-blue-900 text-[10px]">FACTURA DE VENTA</div>
+                            <div className="text-xl md:text-2xl font-black text-red-600 leading-none">{currentInvoice.invoiceNumber}</div>
                         </div>
                     </div>
 
-                    {/* DATOS DEL CLIENTE */}
-                    <div className="mb-4 text-xs font-bold text-gray-800 leading-relaxed">
-                        <div className="flex border-b border-gray-300 border-dashed">
-                            <span className="w-20">Señor(es):</span>
-                            <span className="flex-1 uppercase ml-2">{currentInvoice.client.name}</span>
-                        </div>
-                        <div className="flex border-b border-gray-300 border-dashed">
-                            <span className="w-20">C.C. o Nit:</span>
-                            <span className="flex-1 ml-2">{currentInvoice.client.id}</span>
-                            <span className="w-10">Tel:</span>
-                            <span className="w-32">{currentInvoice.client.phone}</span>
-                        </div>
-                        <div className="flex border-b border-gray-300 border-dashed">
-                            <span className="w-20">Dirección:</span>
-                            <span className="flex-1 ml-2">{currentInvoice.client.address}</span>
-                        </div>
+                    {/* DATOS CLIENTE */}
+                    <div className="mb-4 text-[10px] md:text-xs font-bold text-gray-800 leading-relaxed">
+                        <div className="flex border-b border-gray-300 border-dashed"><span className="w-16 md:w-20">Señor(es):</span><span className="flex-1 uppercase ml-1">{currentInvoice.client.name}</span></div>
+                        <div className="flex border-b border-gray-300 border-dashed"><span className="w-16 md:w-20">C.C. o Nit:</span><span className="flex-1 ml-1">{currentInvoice.client.id}</span><span className="w-8">Tel:</span><span className="w-24">{currentInvoice.client.phone}</span></div>
+                        <div className="flex border-b border-gray-300 border-dashed"><span className="w-16 md:w-20">Dirección:</span><span className="flex-1 ml-1">{currentInvoice.client.address}</span></div>
                     </div>
 
                     {/* TABLA DE PRODUCTOS */}
-                    <div className="border border-blue-900 mb-8 min-h-[300px] relative">
-                        <div className="flex bg-blue-900 text-white text-xs font-bold text-center">
-                            <div className="w-12 py-1 border-r border-white">CANT.</div>
+                    <div className="border border-blue-900 mb-8 min-h-[250px] relative">
+                        <div className="flex bg-blue-900 text-white text-[10px] md:text-xs font-bold text-center">
+                            <div className="w-10 md:w-12 py-1 border-r border-white">CANT.</div>
                             <div className="flex-1 py-1 border-r border-white">DETALLE</div>
-                            <div className="w-24 py-1 border-r border-white">V. UNIT.</div>
-                            <div className="w-24 py-1">VR. TOTAL</div>
+                            <div className="w-20 md:w-24 py-1 border-r border-white">V. UNIT.</div>
+                            <div className="w-20 md:w-24 py-1">VR. TOTAL</div>
                         </div>
                         {currentInvoice.items.map((item, i) => (
-                            <div key={i} className="flex text-xs border-b border-gray-200">
-                                <div className="w-12 py-1 text-center border-r border-blue-900">{item.weight}</div>
-                                <div className="flex-1 py-1 px-2 border-r border-blue-900 uppercase">{item.product}</div>
-                                <div className="w-24 py-1 text-right px-1 border-r border-blue-900">{formatCurrency(item.price)}</div>
-                                <div className="w-24 py-1 text-right px-1 font-bold">{formatCurrency(item.total)}</div>
+                            <div key={i} className="flex text-[10px] md:text-xs border-b border-gray-200">
+                                <div className="w-10 md:w-12 py-1 text-center border-r border-blue-900">{item.weight}</div>
+                                <div className="flex-1 py-1 px-1 border-r border-blue-900 uppercase truncate">{item.product}</div>
+                                <div className="w-20 md:w-24 py-1 text-right px-1 border-r border-blue-900">{formatCurrency(item.price)}</div>
+                                <div className="w-20 md:w-24 py-1 text-right px-1 font-bold">{formatCurrency(item.total)}</div>
                             </div>
                         ))}
-                        
-                        {/* TOTAL FINAL */}
-                        <div className="absolute bottom-0 left-0 right-0 border-t-2 border-blue-900 flex text-sm font-bold">
-                            <div className="flex-1 p-1 text-right pr-4">TOTAL $</div>
-                            <div className="w-24 p-1 text-right border-l border-blue-900 bg-gray-100">{formatCurrency(currentInvoice.total)}</div>
+                        <div className="absolute bottom-0 left-0 right-0 border-t-2 border-blue-900 flex text-xs md:text-sm font-bold">
+                            <div className="flex-1 p-1 text-right pr-2">TOTAL $</div>
+                            <div className="w-20 md:w-24 p-1 text-right border-l border-blue-900 bg-gray-100">{formatCurrency(currentInvoice.total)}</div>
                         </div>
                     </div>
 
-                    {/* PIE DE PÁGINA LEGAL */}
-                    <div className="text-[10px] text-justify leading-tight text-gray-600 mb-8 px-4">
+                    {/* PIE Y FIRMAS */}
+                    <div className="text-[8px] md:text-[10px] text-justify leading-tight text-gray-600 mb-8 px-2">
                         La presente Factura de Venta es un título valor de conformidad a la Ley 1231 del 17 de 2008 y demás normas pertinentes del C.C.
                     </div>
-
-                    {/* FIRMAS */}
-                    <div className="flex justify-between mt-12 px-8 text-xs font-bold text-gray-800">
-                        <div className="text-center">
-                            <div className="w-48 border-t border-black mb-1"></div>
-                            Aceptada
-                        </div>
-                        <div className="text-center">
-                            <div className="w-48 border-t border-black mb-1"></div>
-                            Vendedor
-                        </div>
+                    <div className="flex justify-between mt-8 px-4 text-[10px] md:text-xs font-bold text-gray-800">
+                        <div className="text-center"><div className="w-32 md:w-48 border-t border-black mb-1"></div>Aceptada</div>
+                        <div className="text-center"><div className="w-32 md:w-48 border-t border-black mb-1"></div>Vendedor</div>
                     </div>
                  </div>
               </div>
 
-              {/* BOTONES DE ACCIÓN */}
-              <div className="sticky bottom-0 p-4 bg-white border-t border-gray-200 flex flex-col gap-3 print:hidden">
+              {/* FOOTER FIJO CON BOTONES */}
+              <div className="flex-none bg-white p-4 border-t border-gray-200 flex flex-col gap-3 print:hidden shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-50">
                  <button onClick={() => {
-                     let msg = `*VÍSCERAS JR* 🐮\nFactura #${currentInvoice.invoiceNumber}\nCliente: ${currentInvoice.client.name}\nPago: ${currentInvoice.paymentMethod}\n\n*PEDIDO:*\n`;
-                     currentInvoice.items.forEach(item => {msg += `- ${item.product}: ${item.weight}kg x ${formatCurrency(item.price)} = ${formatCurrency(item.total)}\n`;});
-                     msg += `\n*TOTAL: ${formatCurrency(currentInvoice.total)}*`;
+                     let msg = `*VÍSCERAS JR* 🐮\nFactura #${currentInvoice.invoiceNumber}\nCliente: ${currentInvoice.client.name}\nTOTAL: ${formatCurrency(currentInvoice.total)}\n(Ver PDF adjunto para detalles)`;
                      window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
-                 }} className="w-full py-3 bg-green-500 text-white font-bold rounded-xl flex justify-center gap-2"><Share2 size={20}/> Compartir WhatsApp</button>
-                 <button onClick={() => window.print()} className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl flex justify-center gap-2"><Printer size={20}/> Guardar PDF / Imprimir</button>
+                 }} className="w-full py-3 bg-green-500 text-white font-bold rounded-xl flex justify-center gap-2 shadow-sm active:scale-95 transition-transform"><Share2 size={20}/> Compartir WhatsApp</button>
+                 <button onClick={() => window.print()} className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl flex justify-center gap-2 shadow-sm active:scale-95 transition-transform"><Printer size={20}/> Imprimir / PDF</button>
               </div>
            </div>
         )}
