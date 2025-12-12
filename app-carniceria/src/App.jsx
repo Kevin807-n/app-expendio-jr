@@ -43,21 +43,21 @@ const App = () => {
   const [view, setView] = useState('home'); 
   
   // DATOS PERSISTENTES
-  const [salesHistory, setSalesHistory] = useLocalStorage('meatAppHistoryV16', []);
-  const [tripHistory, setTripHistory] = useLocalStorage('meatAppTripHistoryV16', []); 
-  const [savedClients, setSavedClients] = useLocalStorage('meatAppClientsV16', []);
-  const [invoiceCounter, setInvoiceCounter] = useLocalStorage('meatAppCounterV16', 60); 
-  const [activeTrip, setActiveTrip] = useLocalStorage('meatAppTripV16', null);
-  const [tripExpenses, setTripExpenses] = useLocalStorage('meatAppExpensesV16', []);
-  const [savedRoutes, setSavedRoutes] = useLocalStorage('meatAppRoutesV16', [
+  const [salesHistory, setSalesHistory] = useLocalStorage('meatAppHistoryV17', []);
+  const [tripHistory, setTripHistory] = useLocalStorage('meatAppTripHistoryV17', []); 
+  const [savedClients, setSavedClients] = useLocalStorage('meatAppClientsV17', []);
+  const [invoiceCounter, setInvoiceCounter] = useLocalStorage('meatAppCounterV17', 60); 
+  const [activeTrip, setActiveTrip] = useLocalStorage('meatAppTripV17', null);
+  const [tripExpenses, setTripExpenses] = useLocalStorage('meatAppExpensesV17', []);
+  const [savedRoutes, setSavedRoutes] = useLocalStorage('meatAppRoutesV17', [
     { id: 1, nombre: "Ruta Habitual", origen: "Neiva", destino: "Bogotá", distancia: 300 },
     { id: 2, nombre: "Costa", origen: "Bogotá", destino: "Cartagena", distancia: 1050 }
   ]);
 
   // ESTADOS DE TRABAJO
-  const [cart, setCart] = useLocalStorage('meatAppCurrentCartV16', []); 
-  const [client, setClient] = useLocalStorage('meatAppCurrentClientV16', { name: '', id: '', address: '', phone: '' }); 
-  const [pendingSales, setPendingSales] = useLocalStorage('meatAppPendingSalesV16', []);
+  const [cart, setCart] = useLocalStorage('meatAppCurrentCartV17', []); 
+  const [client, setClient] = useLocalStorage('meatAppCurrentClientV17', { name: '', id: '', address: '', phone: '' }); 
+  const [pendingSales, setPendingSales] = useLocalStorage('meatAppPendingSalesV17', []);
   const [paymentMethod, setPaymentMethod] = useState('Contado');
 
   // ESTADOS TEMPORALES
@@ -186,37 +186,34 @@ const App = () => {
       setNewExpense({ type: '', value: '', note: '' }); 
   };
 
-  // --- FUNCIÓN DE FINALIZAR VIAJE (CORREGIDA Y ROBUSTA) ---
+  // --- FUNCIÓN DE FINALIZAR VIAJE ---
   const endTrip = () => {
      if(!activeTrip) {
-         alert("No hay viaje activo para finalizar.");
+         // Si por alguna razón el estado falló, reseteamos a home
+         alert("Error: No se detectó viaje activo.");
+         setView('home');
          return;
      }
      
      if(!window.confirm("¿Seguro que deseas finalizar el viaje y guardarlo en la bitácora?")) return;
      
-     // 1. Calcular totales en el momento
      const finalSales = getSalesInCurrentTrip();
      const finalExpenses = tripExpenses.reduce((acc, item) => acc + parseFloat(item.value || 0), 0);
 
-     // 2. Crear resumen
      const tripSummary = {
          ...activeTrip,
          endDate: new Date(),
          totalSales: finalSales,
          totalExpenses: finalExpenses,
-         expensesList: [...tripExpenses] // Copia profunda de gastos
+         expensesList: [...tripExpenses]
      };
 
-     // 3. Guardar en historial
      setTripHistory([tripSummary, ...tripHistory]);
-     
-     // 4. Limpiar estado actual
      setActiveTrip(null);
      setTripExpenses([]); 
      
      alert("¡Viaje finalizado exitosamente!");
-     setView('trip_history'); // Llevar a la bitácora para confirmar
+     setView('trip_history'); 
   };
 
   const getDuration = (start, end) => { 
@@ -402,7 +399,6 @@ const App = () => {
           </div>
         )}
 
-        {/* ... (VISTA DE VIAJE - ACTUALIZADA) ... */}
         {view === 'trip' && (
           <div className="pb-20 animate-in slide-in-from-right duration-200">
              {!activeTrip ? (
@@ -450,7 +446,6 @@ const App = () => {
                           </div>
                           <div className="flex gap-2 mt-4">
                              <button onClick={() => window.open(`https://waze.com/ul?q=${activeTrip.ruta.destino}`, '_blank')} className="bg-white text-blue-900 px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 shadow-lg"><Navigation size={16}/> Waze</button>
-                             {/* BOTÓN FINALIZAR ARREGLADO */}
                              <button onClick={endTrip} className="bg-red-500/90 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-lg">Finalizar</button>
                           </div>
                       </div>
@@ -591,9 +586,9 @@ const App = () => {
            </div>
         )}
 
-        {/* VISTA: FACTURA (DISEÑO MEJORADO PARA MÓVIL) */}
+        {/* VISTA: FACTURA (CORREGIDA PARA IMPRESIÓN V17) */}
         {view === 'invoice' && currentInvoice && (
-           <div className="fixed inset-0 bg-white z-50 flex flex-col h-full print:block print:h-auto print:w-full print:overflow-visible">
+           <div className="fixed inset-0 bg-white z-50 flex flex-col h-full print:static print:block print:h-auto print:w-full print:overflow-visible">
               
               {/* HEADER FIJO EN PANTALLA */}
               <div className="flex-none bg-white p-4 shadow-sm flex justify-between items-center border-b print:hidden">
@@ -603,7 +598,7 @@ const App = () => {
               </div>
               
               {/* CUERPO SCROLLABLE (FACTURA) */}
-              <div className="flex-1 overflow-y-auto p-2 bg-gray-100 print:overflow-visible print:bg-white print:p-0 print:h-auto">
+              <div className="flex-1 overflow-y-auto p-2 bg-gray-100 print:overflow-visible print:bg-white print:p-0 print:h-auto print:block">
                  <div className="bg-white shadow-lg p-4 md:p-8 mx-auto max-w-2xl print:shadow-none print:w-full print:max-w-none print:p-0" style={{fontFamily: 'Arial, sans-serif'}}>
                     
                     {/* ENCABEZADO */}
