@@ -35,7 +35,7 @@ function useLocalStorage(key, initialValue) {
 const PRODUCTOS_COMUNES = [
   "Hígado", "Mondongo", "Bofe", "Corazón", "Ubre", "Malaya", 
   "Chocosuela", "Hueso", "Orejas", "Pezuña", "Tocino", 
-  "Bofe Cerdo", "Carne", "Pata de Res", "Buches", "Tripita", "Entresijos"
+  "Bofe Cerdo", "corazón de Cerdo", "Carne", "Pata de Res", "Buches", "Tripita", "Entresijos"
 ];
 
 const App = () => {
@@ -43,21 +43,21 @@ const App = () => {
   const [view, setView] = useState('home'); 
   
   // DATOS PERSISTENTES
-  const [salesHistory, setSalesHistory] = useLocalStorage('meatAppHistoryV20', []);
-  const [tripHistory, setTripHistory] = useLocalStorage('meatAppTripHistoryV20', []); 
-  const [savedClients, setSavedClients] = useLocalStorage('meatAppClientsV20', []);
-  const [invoiceCounter, setInvoiceCounter] = useLocalStorage('meatAppCounterV20', 60); 
-  const [activeTrip, setActiveTrip] = useLocalStorage('meatAppTripV20', null);
-  const [tripExpenses, setTripExpenses] = useLocalStorage('meatAppExpensesV20', []);
-  const [savedRoutes, setSavedRoutes] = useLocalStorage('meatAppRoutesV20', [
+  const [salesHistory, setSalesHistory] = useLocalStorage('meatAppHistoryV22', []);
+  const [tripHistory, setTripHistory] = useLocalStorage('meatAppTripHistoryV22', []); 
+  const [savedClients, setSavedClients] = useLocalStorage('meatAppClientsV22', []);
+  const [invoiceCounter, setInvoiceCounter] = useLocalStorage('meatAppCounterV22', 60); 
+  const [activeTrip, setActiveTrip] = useLocalStorage('meatAppTripV22', null);
+  const [tripExpenses, setTripExpenses] = useLocalStorage('meatAppExpensesV22', []);
+  const [savedRoutes, setSavedRoutes] = useLocalStorage('meatAppRoutesV22', [
     { id: 1, nombre: "Ruta Habitual", origen: "Neiva", destino: "Bogotá", distancia: 300 },
     { id: 2, nombre: "Costa", origen: "Bogotá", destino: "Cartagena", distancia: 1050 }
   ]);
 
   // ESTADOS DE TRABAJO
-  const [cart, setCart] = useLocalStorage('meatAppCurrentCartV20', []); 
-  const [client, setClient] = useLocalStorage('meatAppCurrentClientV20', { name: '', id: '', address: '', phone: '' }); 
-  const [pendingSales, setPendingSales] = useLocalStorage('meatAppPendingSalesV20', []);
+  const [cart, setCart] = useLocalStorage('meatAppCurrentCartV22', []); 
+  const [client, setClient] = useLocalStorage('meatAppCurrentClientV22', { name: '', id: '', address: '', phone: '' }); 
+  const [pendingSales, setPendingSales] = useLocalStorage('meatAppPendingSalesV22', []);
   const [paymentMethod, setPaymentMethod] = useState('Contado');
 
   // ESTADOS TEMPORALES
@@ -214,6 +214,15 @@ const App = () => {
       return `${hours}h ${Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))}m`; 
   };
 
+  // --- FUNCIÓN DE IMPRESIÓN ROBUSTA ---
+  const handlePrint = () => {
+      // Micro-retraso (100ms) para que funcione en todos los celulares
+      // Es tan rápido que parece instantáneo
+      setTimeout(() => {
+          window.print();
+      }, 100);
+  };
+
   // --- RENDERIZADO ---
   return (
     <div className="min-h-screen bg-gray-50 font-sans text-gray-800 max-w-lg mx-auto shadow-2xl print:shadow-none print:max-w-none">
@@ -263,7 +272,7 @@ const App = () => {
           </div>
         )}
 
-        {/* VISTAS INTERMEDIAS (Se mantienen igual) */}
+        {/* ... (Vistas VENDER, CLIENTES, TRIP, HISTORY, WALLET, TRIP_HISTORY se mantienen igual que V21) ... */}
         {view === 'pos' && (
           <div className="pb-20 space-y-4 animate-in slide-in-from-right duration-200">
             {pendingSales.length > 0 && (
@@ -576,9 +585,9 @@ const App = () => {
            </div>
         )}
 
-        {/* VISTA: FACTURA (CORREGIDA PARA IMPRESIÓN) */}
+        {/* VISTA: FACTURA (V22 - PULIDA Y COMPATIBLE) */}
         {view === 'invoice' && currentInvoice && (
-          <div className="fixed inset-0 bg-white z-50 flex flex-col h-full print:absolute print:inset-0 print:h-auto print:w-full print:z-[100] print:bg-white print:overflow-visible">
+           <div className="fixed inset-0 bg-white z-50 flex flex-col h-full print:absolute print:inset-0 print:h-auto print:w-full print:z-[100] print:bg-white print:overflow-visible">
               
               {/* HEADER FIJO EN PANTALLA (Se oculta al imprimir) */}
               <div className="flex-none bg-white p-4 shadow-sm flex justify-between items-center border-b print:hidden">
@@ -687,7 +696,7 @@ const App = () => {
                      window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
                  }} className="w-full py-3 bg-green-500 text-white font-bold rounded-xl flex justify-center gap-2 shadow-sm active:scale-95 transition-transform"><Share2 size={20}/> Compartir WhatsApp</button>
                  
-                 <button onClick={() => window.print()} className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl flex justify-center gap-2 shadow-sm active:scale-95 transition-transform"><Printer size={20}/> Imprimir / PDF</button>
+                 <button onClick={handlePrint} className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl flex justify-center gap-2 shadow-sm active:scale-95 transition-transform"><Printer size={20}/> Imprimir / PDF</button>
               </div>
           </div>
         )}
