@@ -43,22 +43,22 @@ const App = () => {
   const [view, setView] = useState('home'); 
   
   // DATOS PERSISTENTES
-  const [salesHistory, setSalesHistory] = useLocalStorage('meatAppHistoryV13', []);
-  const [tripHistory, setTripHistory] = useLocalStorage('meatAppTripHistoryV13', []); 
-  const [savedClients, setSavedClients] = useLocalStorage('meatAppClientsV13', []);
-  const [invoiceCounter, setInvoiceCounter] = useLocalStorage('meatAppCounterV13', 60); 
-  const [activeTrip, setActiveTrip] = useLocalStorage('meatAppTripV13', null);
-  const [tripExpenses, setTripExpenses] = useLocalStorage('meatAppExpensesV13', []);
-  const [savedRoutes, setSavedRoutes] = useLocalStorage('meatAppRoutesV13', [
+  const [salesHistory, setSalesHistory] = useLocalStorage('meatAppHistoryV14', []);
+  const [tripHistory, setTripHistory] = useLocalStorage('meatAppTripHistoryV14', []); 
+  const [savedClients, setSavedClients] = useLocalStorage('meatAppClientsV14', []);
+  const [invoiceCounter, setInvoiceCounter] = useLocalStorage('meatAppCounterV14', 60); 
+  const [activeTrip, setActiveTrip] = useLocalStorage('meatAppTripV14', null);
+  const [tripExpenses, setTripExpenses] = useLocalStorage('meatAppExpensesV14', []);
+  const [savedRoutes, setSavedRoutes] = useLocalStorage('meatAppRoutesV14', [
     { id: 1, nombre: "Ruta Habitual", origen: "Neiva", destino: "Bogotá", distancia: 300 },
     { id: 2, nombre: "Costa", origen: "Bogotá", destino: "Cartagena", distancia: 1050 }
   ]);
 
   // ESTADOS DE TRABAJO
-  const [cart, setCart] = useLocalStorage('meatAppCurrentCartV13', []); 
-  const [client, setClient] = useLocalStorage('meatAppCurrentClientV13', { name: '', id: '', address: '', phone: '' }); 
-  const [pendingSales, setPendingSales] = useLocalStorage('meatAppPendingSalesV13', []);
-  const [paymentMethod, setPaymentMethod] = useState('Contado'); // Nuevo: Estado para el pago
+  const [cart, setCart] = useLocalStorage('meatAppCurrentCartV14', []); 
+  const [client, setClient] = useLocalStorage('meatAppCurrentClientV14', { name: '', id: '', address: '', phone: '' }); 
+  const [pendingSales, setPendingSales] = useLocalStorage('meatAppPendingSalesV14', []);
+  const [paymentMethod, setPaymentMethod] = useState('Contado');
 
   // ESTADOS TEMPORALES
   const [editingClient, setEditingClient] = useState(null);
@@ -100,6 +100,7 @@ const App = () => {
       total: parseFloat(weight) * parseFloat(price)
     }]);
     setWeight(''); 
+    setPrice(''); 
   };
 
   const calculateTotalSale = () => cart.reduce((acc, item) => acc + item.total, 0);
@@ -111,18 +112,20 @@ const App = () => {
     const nextInvoiceNumber = parseInt(invoiceCounter) + 1;
     const now = new Date();
     
-    // Calcular vencimiento (Si es crédito, damos 30 días, si no, mismo día)
-    const dueDate = new Date(now);
+    let formattedDueDate = ""; 
+    
     if (paymentMethod === 'Credito') {
-        dueDate.setDate(dueDate.getDate() + 30);
+        const dueDateObj = new Date(now);
+        dueDateObj.setDate(dueDateObj.getDate() + 30); 
+        formattedDueDate = dueDateObj.toLocaleDateString('es-CO');
     }
 
     const saleData = {
       id: Date.now(),
       timestamp: Date.now(),
       date: now.toLocaleDateString('es-CO'),
-      dueDate: dueDate.toLocaleDateString('es-CO'), // Fecha vencimiento
-      time: now.toLocaleTimeString('es-CO', {hour: '2-digit', minute:'2-digit', hour12: true}), // Hora AM/PM
+      dueDate: formattedDueDate,
+      time: now.toLocaleTimeString('es-CO', {hour: '2-digit', minute:'2-digit', hour12: true}),
       paymentMethod: paymentMethod,
       client: { ...client },
       items: [...cart],
@@ -136,11 +139,11 @@ const App = () => {
     
     setCart([]);
     setClient({ name: '', id: '', address: '', phone: '' });
-    setPaymentMethod('Contado'); // Resetear a contado
+    setPaymentMethod('Contado'); 
     setView('invoice');
   };
 
-  // --- OTRAS FUNCIONES (Iguales a V12) ---
+  // --- OTRAS FUNCIONES ---
   const parkSale = () => {
       if (cart.length === 0 && !client.name) return alert("No hay nada que guardar.");
       const draft = { id: Date.now(), client: client, cart: cart, date: new Date().toLocaleTimeString('es-CO', {hour: '2-digit', minute:'2-digit'}) };
@@ -289,7 +292,7 @@ const App = () => {
                   <span className="text-3xl font-black">{formatCurrency(calculateTotalSale())}</span>
                 </div>
                 
-                {/* SELECTOR DE PAGO (NUEVO) */}
+                {/* SELECTOR DE PAGO */}
                 <div className="bg-gray-800 p-2 rounded-lg mb-4 flex gap-2">
                     <button onClick={() => setPaymentMethod('Contado')} className={`flex-1 py-2 rounded font-bold text-xs flex items-center justify-center gap-2 ${paymentMethod === 'Contado' ? 'bg-green-500 text-white' : 'bg-gray-700 text-gray-400'}`}>
                         <Banknote size={16}/> CONTADO
@@ -316,9 +319,6 @@ const App = () => {
           </div>
         )}
 
-        {/* ... (Vistas Trip, Clients, Wallet, History se mantienen iguales a V12) ... */}
-        {/* Solo copiamos las partes que cambiaron en la Factura, el resto sigue igual */}
-        
         {view === 'clients' && (
           <div className="pb-20 animate-in slide-in-from-right duration-200">
              {editingClient ? (
@@ -521,7 +521,8 @@ const App = () => {
 
         {/* VISTA: FACTURA (DISEÑO LEGAL V13) */}
         {view === 'invoice' && currentInvoice && (
-           <div className="fixed inset-0 bg-gray-100 z-50 overflow-y-auto animate-in zoom-in duration-200">
+           // CORRECCIÓN 1: print:static y print:overflow-visible para evitar doble página
+           <div className="fixed inset-0 bg-gray-100 z-50 overflow-y-auto animate-in zoom-in duration-200 print:static print:bg-white print:overflow-visible">
               <div className="bg-white p-4 shadow-sm flex justify-between items-center sticky top-0 print:hidden">
                  <button onClick={() => setView('history')} className="flex items-center gap-1 font-bold text-gray-600"><ArrowLeft size={20}/> Volver</button>
                  <span className="font-bold text-gray-800">Vista Previa</span>
@@ -557,15 +558,20 @@ const App = () => {
                         </div>
                         <div className="border-r border-blue-900 p-1 flex-1">
                             <div className="bg-blue-900 text-white font-bold px-1 text-center text-[10px]">FECHA VENCIMIENTO</div>
-                            <div className="text-center font-bold text-sm py-1">{currentInvoice.dueDate}</div>
+                            <div className="text-center font-bold text-sm py-1">{currentInvoice.dueDate || ''}</div>
                         </div>
                         <div className="border-r border-blue-900 p-1 flex-[1.5] flex flex-col justify-center px-2">
+                            {/* CORRECCIÓN 2: Usar 'X' en vez de color de fondo para asegurar impresión */}
                             <div className="flex items-center gap-2 mb-1">
-                                <div className={`w-3 h-3 border border-black flex items-center justify-center ${currentInvoice.paymentMethod === 'Contado' ? 'bg-black' : ''}`}></div>
+                                <div className="w-4 h-4 border border-black flex items-center justify-center text-xs font-bold leading-none">
+                                    {currentInvoice.paymentMethod === 'Contado' && 'X'}
+                                </div>
                                 <span className="font-bold">Contado</span>
                             </div>
                             <div className="flex items-center gap-2">
-                                <div className={`w-3 h-3 border border-black flex items-center justify-center ${currentInvoice.paymentMethod === 'Credito' ? 'bg-black' : ''}`}></div>
+                                <div className="w-4 h-4 border border-black flex items-center justify-center text-xs font-bold leading-none">
+                                    {currentInvoice.paymentMethod === 'Credito' && 'X'}
+                                </div>
                                 <span className="font-bold">Crédito</span>
                             </div>
                         </div>
