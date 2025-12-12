@@ -593,7 +593,7 @@ const App = () => {
 
         {/* VISTA: FACTURA (DISEÑO MEJORADO PARA MÓVIL) */}
         {view === 'invoice' && currentInvoice && (
-           <div className="fixed inset-0 bg-white z-50 flex flex-col h-full print:static print:h-auto print:w-full">
+           <div className="fixed inset-0 bg-white z-50 flex flex-col h-full print:block print:h-auto print:w-full print:overflow-visible">
               
               {/* HEADER FIJO EN PANTALLA */}
               <div className="flex-none bg-white p-4 shadow-sm flex justify-between items-center border-b print:hidden">
@@ -603,7 +603,7 @@ const App = () => {
               </div>
               
               {/* CUERPO SCROLLABLE (FACTURA) */}
-              <div className="flex-1 overflow-y-auto p-2 bg-gray-100 print:overflow-visible print:bg-white print:p-0">
+              <div className="flex-1 overflow-y-auto p-2 bg-gray-100 print:overflow-visible print:bg-white print:p-0 print:h-auto">
                  <div className="bg-white shadow-lg p-4 md:p-8 mx-auto max-w-2xl print:shadow-none print:w-full print:max-w-none print:p-0" style={{fontFamily: 'Arial, sans-serif'}}>
                     
                     {/* ENCABEZADO */}
