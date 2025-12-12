@@ -1,0 +1,21 @@
+{
+  "name": "Expendio de Vísceras Jr.",
+  "short_name": "Vísceras Jr.",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1e3a8a",
+  "description": "Sistema de gestión y facturación móvil.",
+  "icons": [
+    {
+      "src": "logo-jr.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "logo-jr.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
