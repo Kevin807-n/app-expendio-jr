@@ -35,7 +35,7 @@ function useLocalStorage(key, initialValue) {
 const PRODUCTOS_COMUNES = [
   "Hígado", "Mondongo", "Bofe", "Corazón", "Ubre", "Malaya", 
   "Chocosuela", "Hueso", "Orejas", "Pezuña", "Tocino", 
-  "Bofe Cerdo", "Carne", "Pata de Res", "Buches", "Tripita", "Entresijos"
+  "Bofe Cerdo", "corazón de Cerdo", "Carne", "Pata de Res", "Buches", "Tripita", "Entresijos"
 ];
 
 const App = () => {
@@ -586,11 +586,11 @@ const App = () => {
            </div>
         )}
 
-        {/* VISTA: FACTURA (CORREGIDA PARA IMPRESIÓN V17) */}
+        {/* VISTA: FACTURA (CORREGIDA PARA IMPRESIÓN) */}
         {view === 'invoice' && currentInvoice && (
-           <div className="fixed inset-0 bg-white z-50 flex flex-col h-full print:static print:block print:h-auto print:w-full print:overflow-visible">
+          <div className="fixed inset-0 bg-white z-50 flex flex-col h-full print:absolute print:inset-0 print:h-auto print:w-full print:z-[100] print:bg-white print:overflow-visible">
               
-              {/* HEADER FIJO EN PANTALLA */}
+              {/* HEADER FIJO EN PANTALLA (Se oculta al imprimir) */}
               <div className="flex-none bg-white p-4 shadow-sm flex justify-between items-center border-b print:hidden">
                  <button onClick={() => setView('history')} className="flex items-center gap-1 font-bold text-gray-600"><ArrowLeft size={20}/> Volver</button>
                  <span className="font-bold text-gray-800">Vista Previa</span>
@@ -598,14 +598,17 @@ const App = () => {
               </div>
               
               {/* CUERPO SCROLLABLE (FACTURA) */}
-              <div className="flex-1 overflow-y-auto p-2 bg-gray-100 print:overflow-visible print:bg-white print:p-0 print:h-auto print:block">
-                 <div className="bg-white shadow-lg p-4 md:p-8 mx-auto max-w-2xl print:shadow-none print:w-full print:max-w-none print:p-0" style={{fontFamily: 'Arial, sans-serif'}}>
+              {/* NOTA: En impresión quitamos el overflow y dejamos que el height sea auto */}
+              <div className="flex-1 overflow-y-auto p-2 bg-gray-100 print:overflow-visible print:h-auto print:bg-white print:p-0 print:block">
+                 
+                 <div className="bg-white shadow-lg p-4 md:p-8 mx-auto max-w-2xl print:shadow-none print:w-full print:max-w-none print:p-0 print:m-0" style={{fontFamily: 'Arial, sans-serif'}}>
                     
                     {/* ENCABEZADO */}
                     <div className="flex justify-between items-start border-b-2 border-blue-900 pb-2 mb-2">
                         <div className="w-20 h-20 md:w-24 md:h-24 relative mr-2">
                             <img src="/logo-jr.png" alt="JR" className="w-full h-full object-contain" onError={(e) => {e.target.style.display='none';}}/>
-                            <div className="absolute inset-0 flex items-center justify-center border-2 border-dashed border-gray-300 -z-10 text-[8px] text-gray-400 text-center leading-tight">Logo</div>
+                            {/* Texto de respaldo por si no carga la imagen al imprimir */}
+                            <div className="absolute inset-0 flex items-center justify-center border-2 border-dashed border-gray-300 -z-10 text-[8px] text-gray-400 text-center leading-tight print:hidden">Logo</div>
                         </div>
                         <div className="flex-1 text-center">
                             <h1 className="text-xl md:text-2xl font-black text-blue-900 uppercase leading-none tracking-tighter">EXPENDIO DE VÍSCERAS JR.</h1>
@@ -619,13 +622,13 @@ const App = () => {
                     {/* CAJA DE DATOS */}
                     <div className="border border-blue-900 mb-2 flex text-[10px] md:text-xs">
                         <div className="border-r border-blue-900 p-1 flex-1">
-                            <div className="bg-blue-900 text-white font-bold px-1 text-center text-[8px]">FECHA EMISIÓN</div>
+                            <div className="bg-blue-900 text-white font-bold px-1 text-center text-[8px] print:text-black print:bg-transparent print:border-b print:border-gray-300">FECHA EMISIÓN</div>
                             <div className="text-center font-bold py-1">{currentInvoice.date}</div>
                             <div className="text-center text-[8px] text-gray-500">{currentInvoice.time}</div>
                         </div>
                         <div className="border-r border-blue-900 p-1 flex-1">
-                            <div className="bg-blue-900 text-white font-bold px-1 text-center text-[8px]">FECHA VENCIMIENTO</div>
-                            <div className="text-center font-bold py-1">{currentInvoice.dueDate || ''}</div>
+                            <div className="bg-blue-900 text-white font-bold px-1 text-center text-[8px] print:text-black print:bg-transparent print:border-b print:border-gray-300">FECHA VENCIM.</div>
+                            <div className="text-center font-bold py-1">{currentInvoice.dueDate || '-'}</div>
                         </div>
                         <div className="border-r border-blue-900 p-1 flex-[1.5] flex flex-col justify-center px-1">
                             <div className="flex items-center gap-1 mb-1">
@@ -644,31 +647,33 @@ const App = () => {
                     </div>
 
                     {/* DATOS CLIENTE */}
-                    <div className="mb-4 text-[10px] md:text-xs font-bold text-gray-800 leading-relaxed">
-                        <div className="flex border-b border-gray-300 border-dashed"><span className="w-16 md:w-20">Señor(es):</span><span className="flex-1 uppercase ml-1">{currentInvoice.client.name}</span></div>
-                        <div className="flex border-b border-gray-300 border-dashed"><span className="w-16 md:w-20">C.C. o Nit:</span><span className="flex-1 ml-1">{currentInvoice.client.id}</span><span className="w-8">Tel:</span><span className="w-24">{currentInvoice.client.phone}</span></div>
-                        <div className="flex border-b border-gray-300 border-dashed"><span className="w-16 md:w-20">Dirección:</span><span className="flex-1 ml-1">{currentInvoice.client.address}</span></div>
+                    <div className="mb-4 text-[10px] md:text-xs font-bold text-gray-800 leading-relaxed border-b pb-2">
+                        <div className="flex"><span className="w-16 md:w-20">Señor(es):</span><span className="flex-1 uppercase ml-1">{currentInvoice.client.name}</span></div>
+                        <div className="flex mt-1"><span className="w-16 md:w-20">C.C. o Nit:</span><span className="flex-1 ml-1">{currentInvoice.client.id}</span><span className="w-8">Tel:</span><span className="w-24">{currentInvoice.client.phone}</span></div>
+                        <div className="flex mt-1"><span className="w-16 md:w-20">Dirección:</span><span className="flex-1 ml-1">{currentInvoice.client.address}</span></div>
                     </div>
 
                     {/* TABLA DE PRODUCTOS */}
                     <div className="border border-blue-900 mb-8 min-h-[250px] relative">
-                        <div className="flex bg-blue-900 text-white text-[10px] md:text-xs font-bold text-center">
-                            <div className="w-10 md:w-12 py-1 border-r border-white">CANT.</div>
-                            <div className="flex-1 py-1 border-r border-white">DETALLE</div>
-                            <div className="w-20 md:w-24 py-1 border-r border-white">V. UNIT.</div>
+                        <div className="flex bg-blue-900 text-white text-[10px] md:text-xs font-bold text-center print:text-black print:bg-gray-100 print:border-b print:border-black">
+                            <div className="w-10 md:w-12 py-1 border-r border-white print:border-black">CANT.</div>
+                            <div className="flex-1 py-1 border-r border-white print:border-black">DETALLE</div>
+                            <div className="w-20 md:w-24 py-1 border-r border-white print:border-black">V. UNIT.</div>
                             <div className="w-20 md:w-24 py-1">VR. TOTAL</div>
                         </div>
                         {currentInvoice.items.map((item, i) => (
-                            <div key={i} className="flex text-[10px] md:text-xs border-b border-gray-200">
-                                <div className="w-10 md:w-12 py-1 text-center border-r border-blue-900">{item.weight}</div>
-                                <div className="flex-1 py-1 px-1 border-r border-blue-900 uppercase truncate">{item.product}</div>
-                                <div className="w-20 md:w-24 py-1 text-right px-1 border-r border-blue-900">{formatCurrency(item.price)}</div>
+                            <div key={i} className="flex text-[10px] md:text-xs border-b border-gray-200 print:border-gray-300">
+                                <div className="w-10 md:w-12 py-1 text-center border-r border-blue-900 print:border-gray-300">{item.weight}</div>
+                                <div className="flex-1 py-1 px-1 border-r border-blue-900 uppercase truncate print:border-gray-300">{item.product}</div>
+                                <div className="w-20 md:w-24 py-1 text-right px-1 border-r border-blue-900 print:border-gray-300">{formatCurrency(item.price)}</div>
                                 <div className="w-20 md:w-24 py-1 text-right px-1 font-bold">{formatCurrency(item.total)}</div>
                             </div>
                         ))}
-                        <div className="absolute bottom-0 left-0 right-0 border-t-2 border-blue-900 flex text-xs md:text-sm font-bold">
+                        {/* Espaciador para llenar visualmente si hay pocos items, oculto en print para ahorrar papel si es necesario, o visible si quieres mantener el formato de caja */}
+                        
+                        <div className="absolute bottom-0 left-0 right-0 border-t-2 border-blue-900 flex text-xs md:text-sm font-bold print:relative print:mt-4 print:border-t-2 print:border-black">
                             <div className="flex-1 p-1 text-right pr-2">TOTAL $</div>
-                            <div className="w-20 md:w-24 p-1 text-right border-l border-blue-900 bg-gray-100">{formatCurrency(currentInvoice.total)}</div>
+                            <div className="w-20 md:w-24 p-1 text-right border-l border-blue-900 bg-gray-100 print:border-black print:bg-transparent">{formatCurrency(currentInvoice.total)}</div>
                         </div>
                     </div>
 
@@ -676,22 +681,25 @@ const App = () => {
                     <div className="text-[8px] md:text-[10px] text-justify leading-tight text-gray-600 mb-8 px-2">
                         La presente Factura de Venta es un título valor de conformidad a la Ley 1231 del 17 de 2008 y demás normas pertinentes del C.C.
                     </div>
-                    <div className="flex justify-between mt-8 px-4 text-[10px] md:text-xs font-bold text-gray-800">
+                    
+                    {/* Contenedor de firmas con break-inside-avoid para que no queden cortadas entre páginas */}
+                    <div className="flex justify-between mt-12 px-4 text-[10px] md:text-xs font-bold text-gray-800 break-inside-avoid">
                         <div className="text-center"><div className="w-32 md:w-48 border-t border-black mb-1"></div>Aceptada</div>
                         <div className="text-center"><div className="w-32 md:w-48 border-t border-black mb-1"></div>Vendedor</div>
                     </div>
                  </div>
               </div>
 
-              {/* FOOTER FIJO CON BOTONES */}
+              {/* FOOTER FIJO CON BOTONES (Se oculta al imprimir) */}
               <div className="flex-none bg-white p-4 border-t border-gray-200 flex flex-col gap-3 print:hidden shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-50">
                  <button onClick={() => {
                      let msg = `*VÍSCERAS JR* 🐮\nFactura #${currentInvoice.invoiceNumber}\nCliente: ${currentInvoice.client.name}\nTOTAL: ${formatCurrency(currentInvoice.total)}\n(Ver PDF adjunto para detalles)`;
                      window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
                  }} className="w-full py-3 bg-green-500 text-white font-bold rounded-xl flex justify-center gap-2 shadow-sm active:scale-95 transition-transform"><Share2 size={20}/> Compartir WhatsApp</button>
+                 
                  <button onClick={() => window.print()} className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl flex justify-center gap-2 shadow-sm active:scale-95 transition-transform"><Printer size={20}/> Imprimir / PDF</button>
               </div>
-           </div>
+          </div>
         )}
 
       </main>
