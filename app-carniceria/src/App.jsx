@@ -26,7 +26,7 @@ function useLocalStorage(key, initialValue) {
     } catch (error) {
       console.error(error);
     }
-  });
+  };
 
   return [storedValue, setValue];
 }
