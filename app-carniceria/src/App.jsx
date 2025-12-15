@@ -3,7 +3,7 @@ import {
   Save, Share2, Plus, Trash2, History, FileText, ArrowLeft, 
   Truck, CheckCircle, Calculator, MapPin, Navigation, 
   DollarSign, Coffee, Wrench, Fuel, Bed, AlertTriangle, Printer, 
-  Users, UserPlus, Edit, UserCog, X, Search, Settings, Map, TrendingUp, Package, Calendar, Clock, MapPinned, PauseCircle, PlayCircle, CreditCard, Banknote, ChevronDown, ChevronUp
+  Users, UserPlus, Edit, UserCog, X, Search, Settings, Map, TrendingUp, Package, Calendar, Clock, MapPinned, PauseCircle, PlayCircle, CreditCard, Banknote, ChevronDown, ChevronUp, Car
 } from 'lucide-react';
 
 // --- HOOK DE GUARDADO SEGURO ---
@@ -26,30 +26,21 @@ function useLocalStorage(key, initialValue) {
     } catch (error) {
       console.error(error);
     }
-  }; 
+  };
 
   return [storedValue, setValue];
 }
 
-// --- DATOS INICIALES y CONSTANTES DE LA EMPRESA ---
+// --- DATOS INICIALES ---
 const PRODUCTOS_COMUNES = [
   "Hígado", "Mondongo", "Chunchullo", "Riñón", "Pajarilla", "Lenguas", "Bofe", "Corazón", "Ubre", "Malaya", 
   "Chocosuela", "Hueso", "Orejas", "Pezuña", "Tocino", 
-  "Bofe Cerdo", "corazón de Cerdo", "Carne", "Pata de Res", "Buches", "Tripita", "Entresijos"
+  "Bofe Cerdo", "Corazón de Cerdo", "Carne", "Pata de Res", "Buches", "Tripita", "Entresijos"
 ];
 
-const DATOS_EMPRESA = {
-    nombre: "EXPENDIO VÍSCERAS JR.",
-    propietario: "ROMULO JIMENEZ ROA",
-    nit: "79.989.335-4", 
-    responsabilidad: "No Responsable IVA",
-    direccion: "Cra 22 No. 258-17 Sur",
-    ciudad: "Neiva-Huila",
-    tel1: "312 300 8386",
-    tel2: "317 218 4533",
-    logoPath: "/logo-jr.png" 
-};
-
+const EXPENSE_TYPES = [
+    {l:'ACPM',i:Fuel}, {l:'Peaje',i:MapPin}, {l:'Comida',i:Coffee}, {l:'Hotel',i:Bed}, {l:'Taller',i:Wrench}, {l:'Otro',i:AlertTriangle}
+];
 
 const App = () => {
   // --- ESTADOS ---
@@ -67,22 +58,17 @@ const App = () => {
     { id: 2, nombre: "Costa", origen: "Bogotá", destino: "Cartagena", distancia: 1050 }
   ]);
 
-  // --- ACTUALIZADO: Color Vehículo ---
-  const [defaultTransport, setDefaultTransport] = useLocalStorage('meatAppTransportDefault', {
-    conductor: '', cc: '', placa: '', color: ''
-  });
-
   // ESTADOS DE TRABAJO
   const [cart, setCart] = useLocalStorage('meatAppCurrentCartV22', []); 
   const [client, setClient] = useLocalStorage('meatAppCurrentClientV22', { name: '', id: '', address: '', phone: '' }); 
   
-  // --- ACTUALIZADO: Estado para los datos de transporte de la venta actual ---
-  const [transportData, setTransportData] = useState({ 
-    destino: '', 
-    conductor: defaultTransport.conductor || '', 
-    cc: defaultTransport.cc || '', 
-    placa: defaultTransport.placa || '',
-    color: defaultTransport.color || '' 
+  // DATOS DE TRANSPORTE
+  const [transportInfo, setTransportInfo] = useLocalStorage('meatAppTransportV22', {
+    destino: '',
+    conductor: '',
+    cedulaConductor: '',
+    placa: '',
+    color: ''
   });
 
   const [pendingSales, setPendingSales] = useLocalStorage('meatAppPendingSalesV22', []);
@@ -97,13 +83,14 @@ const App = () => {
   const [selectedProduct, setSelectedProduct] = useState('');
   const [weight, setWeight] = useState('');
   const [price, setPrice] = useState('');
-  const [newExpense, setNewExpense] = useState({ type: '', value: '', note: '' });
+  // Estado para el nuevo gasto (Por defecto ACPM seleccionado)
+  const [newExpense, setNewExpense] = useState({ type: 'ACPM', value: '', note: '' });
+  
   const [newRoute, setNewRoute] = useState({ nombre: '', origen: '', destino: '', distancia: '' });
   const [showRouteForm, setShowRouteForm] = useState(false);
   const [cargoItem, setCargoItem] = useState({ product: '', weight: '' });
   const [showConfig, setShowConfig] = useState(false);
   const [tempCounter, setTempCounter] = useState('');
-  const [showTransportForm, setShowTransportForm] = useState(false); 
 
   // --- CALCULOS FINANCIEROS ---
   const formatCurrency = (value) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(value);
@@ -131,7 +118,6 @@ const App = () => {
     }]);
     setWeight(''); 
     setPrice(''); 
-    setSelectedProduct('');
   };
 
   const calculateTotalSale = () => cart.reduce((acc, item) => acc + item.total, 0);
@@ -139,27 +125,16 @@ const App = () => {
   const handleFinishSale = () => {
     if (cart.length === 0) return alert("Carrito vacío");
     if (!client.name.trim()) return alert("Falta nombre del cliente");
-
-    // --- NUEVO: VALIDACIÓN LEGAL PARA POLICÍA ---
-    if (!transportData.destino || !transportData.conductor || !transportData.placa || !transportData.color) {
-        if(!window.confirm("⚠️ Faltan datos de transporte (Placa/Conductor/Destino/Color). ¿Desea facturar así? La policía podría molestar.")) {
-            setShowTransportForm(true); 
-            return;
-        }
+    
+    // Si hay placa pero no destino, advertimos, pero permitimos seguir si el usuario quiere
+    if (transportInfo.placa && !transportInfo.destino) {
+        if(!window.confirm("Pusiste placa pero no Destino. ¿Seguro?")) return;
     }
-
-    // Guardamos conductor y placa como "predeterminados"
-    setDefaultTransport({
-        conductor: transportData.conductor,
-        cc: transportData.cc,
-        placa: transportData.placa,
-        color: transportData.color
-    });
 
     const nextInvoiceNumber = parseInt(invoiceCounter) + 1;
     const now = new Date();
     
-    let formattedDueDate = ""; 
+    let formattedDueDate = "-"; 
     if (paymentMethod === 'Credito') {
         const dueDateObj = new Date(now);
         dueDateObj.setDate(dueDateObj.getDate() + 30); 
@@ -169,16 +144,15 @@ const App = () => {
     const saleData = {
       id: Date.now(),
       timestamp: Date.now(),
-      date: now.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+      date: now.toLocaleDateString('es-CO'),
       dueDate: formattedDueDate,
       time: now.toLocaleTimeString('es-CO', {hour: '2-digit', minute:'2-digit', hour12: true}),
       paymentMethod: paymentMethod,
       client: { ...client },
-      transport: { ...transportData }, 
+      transport: { ...transportInfo }, 
       items: [...cart],
       total: calculateTotalSale(),
-      // El número de factura del PDF es 062. Usamos 0XX para seguir ese formato.
-      invoiceNumber: nextInvoiceNumber.toString().padStart(3, '0') 
+      invoiceNumber: `0${nextInvoiceNumber}`
     };
 
     setSalesHistory([saleData, ...salesHistory]);
@@ -187,8 +161,8 @@ const App = () => {
     
     setCart([]);
     setClient({ name: '', id: '', address: '', phone: '' });
-    
-    setTransportData(prev => ({...prev, destino: ''})); 
+    // Limpiamos datos transporte para evitar errores en la siguiente venta
+    setTransportInfo({ destino: '', conductor: '', cedulaConductor: '', placa: '', color: '' });
     
     setPaymentMethod('Contado'); 
     setView('invoice');
@@ -208,34 +182,17 @@ const App = () => {
       setClient(draft.client); setCart(draft.cart); setPendingSales(pendingSales.filter(d => d.id !== draftId)); 
   };
   const deleteDraft = (draftId) => { if(window.confirm("¿Borrar pendiente?")) setPendingSales(pendingSales.filter(d => d.id !== draftId)); };
-  
   const handleSelectClient = (e) => {
     const id = parseInt(e.target.value);
     const found = savedClients.find(c => c.internalId === id);
-    if (found) {
-        setClient(found);
-        if(found.address && !transportData.destino) {
-            setTransportData(prev => ({...prev, destino: found.address}));
-        }
-    } else {
-        setClient({ name: '', id: '', address: '', phone: '' });
-    }
+    if (found) setClient(found); else setClient({ name: '', id: '', address: '', phone: '' });
   };
-
-  const saveClientFromPOS = () => { 
-      if (!client.name) return; 
-      
-      const exists = savedClients.some(c => c.id === client.id && c.id);
-      if(exists) return alert("Ya existe un cliente con ese NIT/CC.");
-      
-      setSavedClients([...savedClients, { ...client, internalId: Date.now() }]); alert("Cliente guardado"); 
-  };
-  
+  const saveClientFromPOS = () => { if (!client.name) return; setSavedClients([...savedClients, { ...client, internalId: Date.now() }]); alert("Cliente guardado"); };
   const updateCounter = () => { if(tempCounter) { setInvoiceCounter(parseInt(tempCounter)); alert("Contador actualizado."); setShowConfig(false); } };
   const deleteInvoice = (id, e) => { e.stopPropagation(); if(window.confirm("¿Borrar esta factura?")) setSalesHistory(salesHistory.filter(s => s.id !== id)); };
   const deleteTripFromHistory = (id) => { if(window.confirm("¿Borrar este viaje?")) setTripHistory(tripHistory.filter(t => t.id !== id)); };
   const saveNewRoute = () => { if(!newRoute.origen || !newRoute.destino) return alert("Origen y Destino obligatorios"); const nombreFinal = newRoute.nombre || `${newRoute.origen} - ${newRoute.destino}`; setSavedRoutes([...savedRoutes, { ...newRoute, nombre: nombreFinal, id: Date.now() }]); setNewRoute({ nombre: '', origen: '', destino: '', distancia: '' }); setShowRouteForm(false); };
-  const deleteRoute = (id) => { if(window.confirm("¿Borrar ruta?")) setSavedRoutes(savedRoutes.filter(r => r.id !== r.id)); };
+  const deleteRoute = (id) => { if(window.confirm("¿Borrar ruta?")) setSavedRoutes(savedRoutes.filter(r => r.id !== id)); };
   
   const startTrip = (ruta) => { 
       if(activeTrip && !window.confirm("¿Reiniciar viaje activo?")) return; 
@@ -247,13 +204,12 @@ const App = () => {
   const addCargo = () => { if(!cargoItem.product || !cargoItem.weight) return alert("Faltan datos"); const newLoad = [...(activeTrip.cargo || []), { ...cargoItem, id: Date.now() }]; setActiveTrip({ ...activeTrip, cargo: newLoad }); setCargoItem({ product: '', weight: '' }); };
   const removeCargo = (id) => { const newLoad = activeTrip.cargo.filter(c => c.id !== id); setActiveTrip({ ...activeTrip, cargo: newLoad }); };
   
-  /* --- MEJORA UX/UI: Tipos de Gasto mejorado para móvil --- */
-  const expenseTypes = ['Peaje', 'ACPM', 'Comida', 'Hotel', 'Mecánica', 'Otro'];
-
-  const addExpense = (type) => { 
+  // --- FUNCIÓN AGREGAR GASTO AJUSTADA ---
+  const addExpense = () => { 
       if (!newExpense.value) return alert("Ingresa valor"); 
-      setTripExpenses([{ id: Date.now(), type, value: parseFloat(newExpense.value), note: newExpense.note, time: new Date().toLocaleTimeString('es-CO', {hour: '2-digit', minute:'2-digit'}) }, ...tripExpenses]); 
-      setNewExpense({ type: '', value: '', note: '' }); 
+      setTripExpenses([{ id: Date.now(), type: newExpense.type, value: parseFloat(newExpense.value), note: newExpense.note, time: new Date().toLocaleTimeString('es-CO', {hour: '2-digit', minute:'2-digit'}) }, ...tripExpenses]); 
+      // Reseteamos valores pero mantenemos el tipo seleccionado para rapidez
+      setNewExpense({ ...newExpense, value: '', note: '' }); 
   };
 
   const endTrip = () => {
@@ -278,39 +234,37 @@ const App = () => {
      setView('trip_history'); 
   };
 
-  // --- FUNCIÓN DE IMPRESIÓN ---
+  const getDuration = (start, end) => { 
+      if(!start || !end) return "-";
+      const diff = new Date(end) - new Date(start); 
+      const hours = Math.floor(diff / (1000 * 60 * 60)); 
+      return `${hours}h ${Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))}m`; 
+  };
+
+  // --- 🖨️ FIX IMPRESIÓN + NOMBRE PDF ---
   const handlePrint = () => {
+      const originalTitle = document.title;
+      document.title = `Factura ${currentInvoice.invoiceNumber} - ${currentInvoice.client.name}`;
       setTimeout(() => {
           window.print();
-      }, 100);
+          document.title = originalTitle;
+      }, 500);
   };
-  
-  const getIconForExpense = (type) => {
-    switch(type) {
-        case 'ACPM': return <Fuel size={14}/>;
-        case 'Comida': return <Coffee size={14}/>;
-        case 'Peaje': return <AlertTriangle size={14}/>;
-        case 'Mecánica': return <Wrench size={14}/>;
-        case 'Hotel': return <Bed size={14}/>;
-        default: return <DollarSign size={14}/>;
-    }
-  }
-
 
   // --- RENDERIZADO ---
   return (
-    <div className="min-h-screen bg-gray-50 font-sans text-gray-800 max-w-lg mx-auto shadow-2xl print:shadow-none print:max-w-[80mm] print:mx-0">
+    <div className="min-h-screen bg-gray-50 font-sans text-gray-800 max-w-lg mx-auto shadow-2xl print:shadow-none print:max-w-none">
       
       {/* HEADER */}
       {view !== 'invoice' && (
         <header className="bg-gradient-to-r from-blue-900 to-blue-800 text-white p-4 sticky top-0 z-40 shadow-lg flex justify-between items-center print:hidden">
            {view === 'home' ? (
-             <div><h1 className="font-black text-xl italic tracking-tighter">{DATOS_EMPRESA.nombre.replace('EXPENDIO ', '')}</h1><p className="text-[10px] text-blue-200 uppercase tracking-widest">Sistema Móvil</p></div>
+             <div><h1 className="font-black text-xl italic tracking-tighter">VÍSCERAS JR.</h1><p className="text-[10px] text-blue-200 uppercase tracking-widest">Sistema Móvil</p></div>
            ) : (
              <button onClick={() => setView('home')} className="flex items-center gap-2 font-bold text-blue-100"><ArrowLeft/> Menú</button>
            )}
            <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center border-2 border-blue-200 overflow-hidden">
-             <img src={DATOS_EMPRESA.logoPath} alt="JR" className="w-full h-full object-cover" onError={(e) => {e.target.style.display='none';}} />
+             <img src="/logo-jr.png" alt="JR" className="w-full h-full object-cover" onError={(e) => {e.target.style.display='none';}} />
              <Truck size={20} className="text-blue-900 absolute" style={{zIndex: -1}}/>
            </div>
         </header>
@@ -321,7 +275,7 @@ const App = () => {
         {/* VISTA: HOME */}
         {view === 'home' && (
           <div className="grid grid-cols-2 gap-4 mt-4 animate-in zoom-in duration-300">
-            <button onClick={() => {setView('pos'); setShowTransportForm(false);}} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col items-center gap-3 active:scale-95 transition-transform hover:shadow-md">
+            <button onClick={() => setView('pos')} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col items-center gap-3 active:scale-95 transition-transform hover:shadow-md">
               <div className="bg-blue-50 p-4 rounded-full text-blue-600"><FileText size={32}/></div><span className="font-bold text-gray-700">Nueva Venta</span>
             </button>
             <button onClick={() => setView('trip')} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 flex flex-col items-center gap-3 active:scale-95 transition-transform hover:shadow-md">
@@ -343,21 +297,10 @@ const App = () => {
                    <ArrowLeft className="rotate-180 text-gray-400" size={18}/>
                 </div>
             </div>
-            {/* CONFIGURACIÓN OCULTA */}
-            <div className="col-span-2 flex justify-center mt-4">
-                <button onClick={() => setShowConfig(!showConfig)} className="text-gray-300 p-2"><Settings size={16}/></button>
-            </div>
-            {showConfig && (
-                <div className="col-span-2 bg-gray-200 p-4 rounded-lg text-center">
-                    <p className="text-xs mb-2 font-bold">Ajustar Consecutivo Factura</p>
-                    <input type="number" placeholder={invoiceCounter} onChange={(e) => setTempCounter(e.target.value)} className="p-2 rounded border w-24 text-center mr-2"/>
-                    <button onClick={updateCounter} className="bg-blue-600 text-white px-4 py-2 rounded text-xs">Guardar</button>
-                </div>
-            )}
           </div>
         )}
 
-        {/* VISTA: VENDER (POS) CON DATOS DE TRANSPORTE */}
+        {/* VISTA: POS (VENTA) */}
         {view === 'pos' && (
           <div className="pb-20 space-y-4 animate-in slide-in-from-right duration-200">
             {pendingSales.length > 0 && (
@@ -374,7 +317,6 @@ const App = () => {
                 </div>
             )}
 
-            {/* SECCIÓN CLIENTE */}
             <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
               <div className="flex justify-between items-center mb-3">
                 <h3 className="text-xs font-bold text-gray-500 uppercase flex items-center gap-1"><Users size={14}/> Cliente</h3>
@@ -386,102 +328,48 @@ const App = () => {
                 )}
               </div>
               <div className="flex gap-2 mb-2">
-                <input className="flex-1 p-2 border border-gray-300 rounded outline-none font-bold text-gray-700" placeholder="Nombre *" value={client.name} onChange={e => setClient({...client, name: e.target.value})} />
+                <input className="flex-1 p-2 border border-gray-300 rounded outline-none font-bold text-gray-700" placeholder="Nombre Cliente *" value={client.name} onChange={e => setClient({...client, name: e.target.value})} />
                 <button onClick={saveClientFromPOS} className="bg-gray-100 px-3 rounded text-gray-500 hover:text-blue-600 border border-gray-200"><Save size={20}/></button>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                 <input type="text" placeholder="NIT / CC" className="p-2 border border-gray-300 rounded outline-none text-sm" value={client.id} onChange={e => setClient({...client, id: e.target.value})}/>
+                 <input type="number" placeholder="NIT / CC" className="p-2 border border-gray-300 rounded outline-none text-sm" value={client.id} onChange={e => setClient({...client, id: e.target.value})}/>
                  <input type="tel" placeholder="Celular" className="p-2 border border-gray-300 rounded outline-none text-sm" value={client.phone} onChange={e => setClient({...client, phone: e.target.value})}/>
               </div>
-              <input type="text" placeholder="Dirección (Destino)" className="w-full p-2 border border-gray-300 rounded outline-none text-sm mt-2" value={client.address} onChange={e => setClient({...client, address: e.target.value})}/>
+              <input type="text" placeholder="Dirección" className="w-full p-2 border border-gray-300 rounded outline-none text-sm mt-2" value={client.address} onChange={e => setClient({...client, address: e.target.value})}/>
+            </div>
+            
+            {/* DATOS TRANSPORTE (LEGAL) */}
+            <div className="bg-blue-50 p-4 rounded-xl shadow-sm border border-blue-100">
+               <h3 className="text-xs font-bold text-blue-800 uppercase mb-3 flex items-center gap-1"><Truck size={14}/> Datos Transporte (Opcional)</h3>
+               <div className="grid grid-cols-2 gap-2 mb-2">
+                  <input className="p-2 border border-blue-200 rounded text-sm" placeholder="Destino (Ciudad)" value={transportInfo.destino} onChange={e => setTransportInfo({...transportInfo, destino: e.target.value})}/>
+                  <input className="p-2 border border-blue-200 rounded text-sm" placeholder="Conductor" value={transportInfo.conductor} onChange={e => setTransportInfo({...transportInfo, conductor: e.target.value})}/>
+               </div>
+               <div className="grid grid-cols-3 gap-2">
+                   <input type="number" className="p-2 border border-blue-200 rounded text-sm" placeholder="CC Conductor" value={transportInfo.cedulaConductor} onChange={e => setTransportInfo({...transportInfo, cedulaConductor: e.target.value})}/>
+                   <input className="p-2 border border-blue-200 rounded text-sm uppercase" placeholder="Placa Veh." value={transportInfo.placa} onChange={e => setTransportInfo({...transportInfo, placa: e.target.value})}/>
+                   <input className="p-2 border border-blue-200 rounded text-sm" placeholder="Color Veh." value={transportInfo.color} onChange={e => setTransportInfo({...transportInfo, color: e.target.value})}/>
+               </div>
+               <p className="text-[10px] text-blue-400 mt-2 italic">* Si dejas el Destino vacío, esta información NO saldrá en la factura.</p>
             </div>
 
-            {/* --- DATOS DE TRANSPORTE Y DESPACHO (CON CAMPO COLOR) --- */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <div 
-                    onClick={() => setShowTransportForm(!showTransportForm)}
-                    className={`p-3 flex justify-between items-center cursor-pointer ${showTransportForm ? 'bg-blue-50 border-b border-blue-100' : 'bg-white'}`}
-                >
-                    <h3 className="text-xs font-bold text-gray-500 uppercase flex items-center gap-1">
-                        <Truck size={14}/> Datos de Despacho (Legal)
-                    </h3>
-                    {showTransportForm ? <ChevronUp size={16} className="text-gray-400"/> : <ChevronDown size={16} className="text-gray-400"/>}
-                </div>
-                
-                {showTransportForm && (
-                    <div className="p-4 space-y-3 bg-gray-50 animate-in slide-in-from-top duration-200">
-                         <div>
-                            <label className="text-[10px] font-bold text-gray-400 uppercase">Lugar de Destino (Mercancía)</label>
-                            <input 
-                                className="w-full p-2 border border-gray-300 rounded bg-white text-sm" 
-                                placeholder="Ej: Supermercado El Centro, Bogotá"
-                                value={transportData.destino}
-                                onChange={e => setTransportData({...transportData, destino: e.target.value})}
-                            />
-                         </div>
-                         <div className="grid grid-cols-2 gap-2">
-                             <div>
-                                <label className="text-[10px] font-bold text-gray-400 uppercase">Placa Vehículo</label>
-                                <input 
-                                    className="w-full p-2 border border-gray-300 rounded bg-white text-sm uppercase" 
-                                    placeholder="AAA-123"
-                                    value={transportData.placa}
-                                    onChange={e => setTransportData({...transportData, placa: e.target.value.toUpperCase()})}
-                                />
-                             </div>
-                             <div>
-                                <label className="text-[10px] font-bold text-gray-400 uppercase">Color Vehículo</label>
-                                <input 
-                                    className="w-full p-2 border border-gray-300 rounded bg-white text-sm capitalize" 
-                                    placeholder="Blanco, Rojo, etc"
-                                    value={transportData.color}
-                                    onChange={e => setTransportData({...transportData, color: e.target.value})}
-                                />
-                             </div>
-                         </div>
-                         <div className="grid grid-cols-2 gap-2">
-                             <div>
-                                <label className="text-[10px] font-bold text-gray-400 uppercase">Nombre Conductor</label>
-                                <input 
-                                    className="w-full p-2 border border-gray-300 rounded bg-white text-sm" 
-                                    placeholder="Nombre completo"
-                                    value={transportData.conductor}
-                                    onChange={e => setTransportData({...transportData, conductor: e.target.value})}
-                                />
-                             </div>
-                             <div>
-                                <label className="text-[10px] font-bold text-gray-400 uppercase">C.C. Conductor</label>
-                                <input 
-                                    type="text"
-                                    className="w-full p-2 border border-gray-300 rounded bg-white text-sm" 
-                                    placeholder="Cedula"
-                                    value={transportData.cc}
-                                    onChange={e => setTransportData({...transportData, cc: e.target.value})}
-                                />
-                             </div>
-                         </div>
-                    </div>
-                )}
-            </div>
-
-            {/* SECCIÓN PRODUCTOS */}
             <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
               <h3 className="text-xs font-bold text-gray-500 uppercase mb-3">Agregar Producto</h3>
               <div className="flex flex-wrap gap-2 mb-4">
                 {PRODUCTOS_COMUNES.map(p => (
-                  <button key={p} onClick={() => setSelectedProduct(p)} className={`px-2 py-1 text-xs rounded border active:scale-95 transition-transform ${selectedProduct === p ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-50 text-gray-600 border-gray-200'}`}>{p}</button>
+                  <button key={p} onClick={() => setSelectedProduct(p)} className={`px-2 py-1 text-xs rounded border ${selectedProduct === p ? 'bg-blue-600 text-white border-blue-600' : 'bg-gray-50 text-gray-600 border-gray-200'}`}>{p}</button>
                 ))}
               </div>
               <div className="flex gap-2 items-end">
-                <div className="flex-1 min-w-[50px]">
+                <div className="flex-1">
                   <label className="text-[10px] font-bold text-gray-400">ITEM</label>
                   <div className="h-10 px-2 bg-blue-50 border border-blue-100 rounded flex items-center font-bold text-blue-900 text-sm truncate">{selectedProduct || '...'}</div>
                 </div>
-                <div className="w-16">
+                <div className="w-20">
                   <label className="text-[10px] font-bold text-gray-400">KG</label>
                   <input type="number" className="w-full h-10 px-2 border border-gray-300 rounded font-bold text-center outline-none" placeholder="0" value={weight} onChange={e => setWeight(e.target.value)}/>
                 </div>
-                <div className="flex-1 min-w-[60px]">
+                <div className="w-24">
                   <label className="text-[10px] font-bold text-gray-400">PRECIO</label>
                   <input type="number" className="w-full h-10 px-2 border border-gray-300 rounded font-bold text-center outline-none" placeholder="$" value={price} onChange={e => setPrice(e.target.value)}/>
                 </div>
@@ -523,15 +411,43 @@ const App = () => {
           </div>
         )}
 
-        {/* VISTA: CLIENTES (Mantenimiento de clientes) - Omitida para brevedad, no hay cambios relevantes de UX en esta vista */}
+        {/* ... (CLIENTES se mantiene igual) ... */}
+        {view === 'clients' && (
+          <div className="pb-20 animate-in slide-in-from-right duration-200">
+             {editingClient ? (
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 space-y-3">
+                   <div className="flex justify-between items-center border-b pb-2"><h2 className="font-bold text-lg">Editar Cliente</h2><button onClick={() => setEditingClient(null)}><X size={20}/></button></div>
+                   <input className="w-full p-3 border rounded-lg" placeholder="Nombre" value={editingClient.name} onChange={e => setEditingClient({...editingClient, name: e.target.value})}/>
+                   <input className="w-full p-3 border rounded-lg" type="number" placeholder="NIT/CC" value={editingClient.id} onChange={e => setEditingClient({...editingClient, id: e.target.value})}/>
+                   <input className="w-full p-3 border rounded-lg" type="tel" placeholder="Celular" value={editingClient.phone} onChange={e => setEditingClient({...editingClient, phone: e.target.value})}/>
+                   <input className="w-full p-3 border rounded-lg" placeholder="Dirección" value={editingClient.address} onChange={e => setEditingClient({...editingClient, address: e.target.value})}/>
+                   <button onClick={() => {
+                       if(!editingClient.name) return;
+                       if(editingClient.internalId) setSavedClients(savedClients.map(c => c.internalId === editingClient.internalId ? editingClient : c));
+                       else setSavedClients([...savedClients, {...editingClient, internalId: Date.now()}]);
+                       setEditingClient(null);
+                   }} className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold">Guardar</button>
+                </div>
+             ) : (
+                <div className="space-y-4">
+                  <button onClick={() => setEditingClient({name:'', id:'', phone:'', address:''})} className="w-full py-3 border-2 border-dashed border-blue-200 text-blue-600 font-bold rounded-xl flex justify-center gap-2"><UserPlus size={20}/> Nuevo Cliente</button>
+                  <div className="space-y-2">
+                    {savedClients.map(c => (
+                      <div key={c.internalId} className="bg-white p-3 rounded-xl border border-gray-200 shadow-sm flex justify-between items-center">
+                        <div><div className="font-bold text-gray-800">{c.name}</div><div className="text-xs text-gray-500">{c.phone}</div></div>
+                        <div className="flex gap-2"><button onClick={() => setEditingClient(c)} className="p-2 bg-blue-50 text-blue-600 rounded"><Edit size={16}/></button><button onClick={() => {if(window.confirm("¿Borrar?")) setSavedClients(savedClients.filter(x => x.internalId !== c.internalId))}} className="p-2 bg-red-50 text-red-500 rounded"><Trash2 size={16}/></button></div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+             )}
+          </div>
+        )}
 
-        {/* VISTA: TRIP (VIAJE) */}
         {view === 'trip' && (
           <div className="pb-20 animate-in slide-in-from-right duration-200">
              {!activeTrip ? (
-                /* Contenido para iniciar viaje (similar al anterior) */
                 <div className="space-y-4">
-                   {/* ... Formulario de ruta y listado de rutas (similar al anterior) ... */}
                    {showRouteForm ? (
                        <div className="bg-white p-4 rounded-xl border border-gray-200 space-y-3">
                            <div className="flex justify-between items-center"><h3 className="font-bold">Nueva Ruta</h3><button onClick={() => setShowRouteForm(false)}><X size={20}/></button></div>
@@ -564,6 +480,7 @@ const App = () => {
                 </div>
              ) : (
                 <div className="space-y-4">
+                   {/* INFO VIAJE */}
                    <div className="bg-gradient-to-br from-blue-900 to-indigo-900 text-white p-6 rounded-xl shadow-lg relative overflow-hidden">
                       <div className="relative z-10">
                           <span className="text-xs font-bold text-blue-300 uppercase tracking-widest mb-1 block">Rumbo a:</span>
@@ -571,187 +488,330 @@ const App = () => {
                           <p className="text-sm text-blue-200 mb-4 flex items-center gap-1"><MapPin size={14}/> Saliendo de: {activeTrip.ruta.origen}</p>
                           <div className="grid grid-cols-2 gap-4 bg-white/10 p-3 rounded-lg backdrop-blur-sm">
                               <div><p className="text-xs text-blue-200 uppercase">Ventas Viaje</p><p className="font-bold text-lg text-green-300">{formatCurrency(getSalesInCurrentTrip())}</p></div>
-                              <div><p className="text-xs text-blue-200 uppercase">Gastos Viaje</p><p className="font-bold text-lg text-red-300">{formatCurrency(tripExpenses.reduce((acc, i) => acc + parseFloat(i.value), 0))}</p></div>
+                              <div><p className="text-xs text-blue-200 uppercase">Gastos Viaje</p><p className="font-bold text-lg text-red-300">{formatCurrency(currentTripExpensesTotal)}</p></div>
+                          </div>
+                          <div className="flex gap-2 mt-4">
+                             <button onClick={() => window.open(`https://waze.com/ul?q=${activeTrip.ruta.destino}`, '_blank')} className="bg-white text-blue-900 px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 shadow-lg"><Navigation size={16}/> Waze</button>
+                             <button onClick={endTrip} className="bg-red-500/90 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-bold text-sm shadow-lg">Finalizar</button>
                           </div>
                       </div>
-                      <Map className="absolute -bottom-4 -right-4 text-white/5 w-40 h-40"/>
+                      <Map size={140} className="absolute -bottom-6 -right-6 text-white opacity-10"/>
                    </div>
-
-                   {/* CARGA / INVENTARIO CAMIÓN (Similar al anterior) */}
-                   <div className="bg-white p-4 rounded-xl border border-gray-200">
-                      <h3 className="font-bold text-gray-700 mb-3 flex items-center gap-2"><Package size={18}/> Inventario Carga</h3>
+                   
+                   {/* CARGA */}
+                   <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                      <h3 className="text-xs font-bold text-gray-500 uppercase mb-3 flex items-center gap-2"><Package size={14}/> Carga del Camión</h3>
                       <div className="flex gap-2 mb-3">
-                         <select className="p-2 border rounded text-xs flex-1 bg-white" value={cargoItem.product} onChange={e => setCargoItem({...cargoItem, product: e.target.value})}>
+                         <select className="flex-1 p-2 text-sm border rounded outline-none" value={cargoItem.product} onChange={e => setCargoItem({...cargoItem, product: e.target.value})}>
                             <option value="">Producto...</option>
                             {PRODUCTOS_COMUNES.map(p => <option key={p} value={p}>{p}</option>)}
                          </select>
-                         <input type="number" className="w-20 p-2 border rounded text-xs" placeholder="Kg" value={cargoItem.weight} onChange={e => setCargoItem({...cargoItem, weight: e.target.value})}/>
-                         <button onClick={addCargo} className="bg-blue-600 text-white p-2 rounded"><Plus size={16}/></button>
+                         <input type="number" placeholder="Kg" className="w-20 p-2 text-sm border rounded outline-none" value={cargoItem.weight} onChange={e => setCargoItem({...cargoItem, weight: e.target.value})}/>
+                         <button onClick={addCargo} className="bg-blue-600 text-white p-2 rounded"><Plus size={18}/></button>
                       </div>
                       <div className="space-y-1">
-                          {activeTrip.cargo && activeTrip.cargo.map(c => (
-                              <div key={c.id} className="flex justify-between items-center text-sm p-2 bg-gray-50 rounded">
-                                  <span>{c.product} ({c.weight} kg)</span>
-                                  <button onClick={() => removeCargo(c.id)} className="text-red-400"><X size={14}/></button>
-                              </div>
-                          ))}
-                          {(!activeTrip.cargo || activeTrip.cargo.length === 0) && <p className="text-xs text-gray-400 italic">No hay carga registrada.</p>}
+                         {(activeTrip.cargo || []).map(item => (
+                            <div key={item.id} className="flex justify-between items-center text-sm bg-blue-50 p-2 rounded border border-blue-100">
+                               <span className="font-bold text-blue-900">{item.product}</span>
+                               <div className="flex items-center gap-2"><span className="text-blue-700">{item.weight} Kg</span><button onClick={() => removeCargo(item.id)} className="text-red-400"><X size={14}/></button></div>
+                            </div>
+                         ))}
                       </div>
                    </div>
 
-                   {/* GASTOS (MEJORA UX/UI) */}
-                   <div className="bg-white p-4 rounded-xl border border-gray-200">
-                      <h3 className="font-bold text-gray-700 mb-3 flex items-center gap-2"><TrendingUp size={18}/> Registrar Gasto</h3>
+                   {/* --- 📝 REGISTRO DE GASTO EN LÍNEA (DISEÑO AJUSTADO) --- */}
+                   <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                      <h3 className="text-xs font-bold text-gray-500 uppercase mb-3 flex items-center gap-2"><Plus size={14}/> Registrar Gasto</h3>
                       
-                      {/* --- MEJORA UX/UI: Tipos de Gasto como botones scrollable --- */}
-                      <div className="flex gap-2 mb-3 overflow-x-auto pb-2 -mx-4 px-4 whitespace-nowrap">
-                         {expenseTypes.map(t => (
-                            <button key={t} onClick={() => setNewExpense({...newExpense, type: t})} className={`px-3 py-1 text-xs rounded-full border flex-shrink-0 ${newExpense.type === t ? 'bg-red-500 text-white border-red-500' : 'bg-gray-50 text-gray-600 border-gray-200'}`}>
-                                {t}
+                      {/* FILA 1: VALOR + NOTA + BOTÓN GUARDAR (+) */}
+                      <div className="flex gap-2 mb-3 items-stretch">
+                         <div className="relative w-32">
+                            <span className="absolute left-3 top-3 text-gray-400 font-bold">$</span>
+                            <input 
+                                type="number" 
+                                placeholder="0" 
+                                className="w-full pl-6 p-3 text-xl font-black outline-none border border-gray-200 rounded-lg focus:border-blue-500 transition-colors" 
+                                value={newExpense.value} 
+                                onChange={e => setNewExpense({...newExpense, value: e.target.value})}
+                            />
+                         </div>
+                         <input 
+                            type="text" 
+                            placeholder="Nota..." 
+                            className="flex-1 p-3 text-sm border border-gray-200 rounded-lg outline-none focus:border-blue-500" 
+                            value={newExpense.note} 
+                            onChange={e => setNewExpense({...newExpense, note: e.target.value})}
+                         />
+                         <button onClick={addExpense} className="bg-blue-600 text-white w-12 rounded-lg flex items-center justify-center shadow-md active:scale-95">
+                             <Plus size={28} strokeWidth={3}/>
+                         </button>
+                      </div>
+
+                      {/* FILA 2: BOTONES DE CATEGORÍA (SELECCIÓN) */}
+                      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                         {EXPENSE_TYPES.map((x,i) => (
+                            <button 
+                                key={i} 
+                                onClick={() => setNewExpense({...newExpense, type: x.l})} 
+                                className={`flex flex-col items-center p-2 rounded-lg border transition-all ${newExpense.type === x.l ? 'bg-blue-50 border-blue-500 text-blue-700 shadow-sm' : 'bg-gray-50 border-transparent text-gray-400 hover:bg-gray-100'}`}
+                            >
+                              <x.i size={18} className="mb-1"/><span className="text-[10px] font-bold">{x.l}</span>
                             </button>
                          ))}
                       </div>
-
-                      {/* --- MEJORA UX/UI: Inputs de Gasto con mejor distribución --- */}
-                      <div className="flex gap-2 mb-3">
-                         <div className="flex-1">
-                            <label className="text-[10px] font-bold text-gray-400">Valor</label>
-                            <input type="number" className="w-full p-2 border rounded outline-none" placeholder="$" value={newExpense.value} onChange={e => setNewExpense({...newExpense, value: e.target.value})}/>
-                         </div>
-                         <div className="flex-1">
-                            <label className="text-[10px] font-bold text-gray-400">Nota</label>
-                            <input className="w-full p-2 border rounded outline-none" placeholder="Motivo" value={newExpense.note} onChange={e => setNewExpense({...newExpense, note: e.target.value})}/>
-                         </div>
-                         <button onClick={() => addExpense(newExpense.type || 'Otro')} className="h-10 w-10 mt-5 bg-red-500 text-white p-2 rounded shadow-lg active:scale-95 flex items-center justify-center"><Plus size={20}/></button>
-                      </div>
-
-                      <div className="space-y-2 max-h-40 overflow-y-auto">
-                         {tripExpenses.map(e => (
-                             <div key={e.id} className="flex justify-between items-center text-sm bg-gray-50 p-2 rounded border border-gray-100">
-                                 <div className="flex items-center gap-2">
-                                     <div className="bg-white p-1 rounded text-red-500">
-                                         {getIconForExpense(e.type)}
-                                     </div>
-                                     <div><p className="font-bold">{e.type}</p><p className="text-[10px] text-gray-400">{e.note}</p></div>
-                                 </div>
-                                 <div className="text-right"><p className="font-bold">{formatCurrency(e.value)}</p><p className="text-[10px] text-gray-400">{e.time}</p></div>
-                             </div>
-                         ))}
-                      </div>
                    </div>
 
-                   <button onClick={endTrip} className="w-full py-4 bg-gray-900 text-white font-bold rounded-xl shadow-lg flex justify-center items-center gap-2"><CheckCircle/> Finalizar Viaje</button>
-                   
-                   <a href={`https://waze.com/ul?q=${activeTrip.ruta.destino}`} target="_blank" rel="noopener noreferrer" className="block w-full py-3 bg-blue-50 text-blue-600 font-bold rounded-xl border border-blue-100 flex justify-center items-center gap-2"><Navigation size={18}/> Abrir Waze</a>
+                   {/* GASTOS RECIENTES */}
+                   <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                      <h3 className="text-xs font-bold text-gray-500 uppercase mb-3">Últimos Gastos del Viaje</h3>
+                      {tripExpenses.length === 0 ? <p className="text-xs text-gray-400 italic">No has registrado gastos aún.</p> : (
+                          <div className="space-y-0 text-sm">{tripExpenses.slice(0, 5).map((expense) => (
+                                  <div key={expense.id} className="flex justify-between items-center py-2 border-b border-gray-50 last:border-0">
+                                      <div className="flex items-center gap-2"><span className="text-xs font-bold text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded">{expense.type}</span><span className="text-xs text-gray-400">{expense.note}</span></div>
+                                      <div className="text-right"><span className="font-bold text-red-500 block">-{formatCurrency(expense.value)}</span><span className="text-[10px] text-gray-300">{expense.time}</span></div>
+                                  </div>
+                              ))}
+                          </div>
+                      )}
+                   </div>
                 </div>
              )}
           </div>
         )}
 
-        {/* VISTAS DE HISTORIALES Y GANANCIAS - Omitidas para brevedad, no hay cambios relevantes de UX en esta vista */}
+        {/* ... (TRIP_HISTORY, HISTORY, WALLET se mantienen igual) ... */}
+        {view === 'trip_history' && (
+           <div className="pb-20 space-y-4 animate-in slide-in-from-right duration-200">
+               <div className="bg-white p-4 rounded-xl border border-gray-200 mb-2"><h2 className="font-bold text-lg">Bitácora de Viajes</h2><p className="text-xs text-gray-500">Resumen financiero y de carga</p></div>
+               {tripHistory.map(trip => {
+                   const profit = (trip.totalSales || 0) - (trip.totalExpenses || 0);
+                   const isExpanded = expandedTripId === trip.id;
+                   
+                   return (
+                   <div key={trip.id} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm space-y-3 relative">
+                       <button onClick={() => deleteTripFromHistory(trip.id)} className="absolute top-2 right-2 text-red-300 hover:text-red-500"><Trash2 size={16}/></button>
+                       <div className="flex justify-between items-start border-b border-gray-100 pb-2 pr-6">
+                           <div><h3 className="font-black text-blue-900 text-lg">{trip.ruta.destino}</h3><p className="text-xs text-gray-500 flex items-center gap-1"><MapPin size={10}/> Desde {trip.ruta.origen}</p></div>
+                           <div className="text-right"><p className="text-xs font-bold text-gray-400">{new Date(trip.startDate).toLocaleDateString()}</p><p className="text-[10px] text-gray-400 bg-gray-100 px-1 rounded inline-block">Duración: {getDuration(trip.startDate, trip.endDate)}</p></div>
+                       </div>
+                       <div className="grid grid-cols-3 gap-2 text-sm">
+                           <div className="bg-green-50 p-2 rounded text-center"><span className="block text-[10px] font-bold text-green-700 uppercase">Ventas</span><span className="font-bold text-green-800">{formatCurrency(trip.totalSales)}</span></div>
+                           <div className="bg-red-50 p-2 rounded text-center"><span className="block text-[10px] font-bold text-red-700 uppercase">Gastos</span><span className="font-bold text-red-800">{formatCurrency(trip.totalExpenses)}</span></div>
+                           <div className={`p-2 rounded text-center ${profit >= 0 ? 'bg-blue-50' : 'bg-orange-50'}`}><span className={`block text-[10px] font-bold uppercase ${profit >= 0 ? 'text-blue-700' : 'text-orange-700'}`}>Ganancia</span><span className={`font-bold ${profit >= 0 ? 'text-blue-800' : 'text-orange-800'}`}>{formatCurrency(profit)}</span></div>
+                       </div>
+                       {trip.cargo && trip.cargo.length > 0 && (<div className="bg-gray-50 p-2 rounded border border-gray-100"><p className="text-[10px] font-bold text-gray-500 uppercase mb-1">Carga Transportada:</p><div className="flex flex-wrap gap-1">{trip.cargo.map((c, i) => (<span key={i} className="text-[10px] bg-white border px-1.5 py-0.5 rounded text-gray-600">{c.product} ({c.weight}kg)</span>))}</div></div>)}
+                       <div className="border-t border-gray-100 pt-2">
+                           <button onClick={() => setExpandedTripId(isExpanded ? null : trip.id)} className="w-full flex items-center justify-center gap-1 text-xs text-gray-500 font-bold hover:text-blue-600 py-1">
+                               {isExpanded ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}{isExpanded ? "Ocultar Gastos" : "Ver Detalle de Gastos"}
+                           </button>
+                           {isExpanded && (
+                               <div className="mt-2 space-y-1 bg-gray-50 p-2 rounded text-xs animate-in slide-in-from-top-2">
+                                   {(!trip.expensesList || trip.expensesList.length === 0) ? <p className="text-center text-gray-400 italic">No hubo gastos registrados.</p> : (
+                                       trip.expensesList.map((exp, idx) => (
+                                           <div key={idx} className="flex justify-between items-center border-b border-gray-200 last:border-0 pb-1">
+                                               <div className="flex items-center gap-2"><span className="font-bold text-gray-700">{exp.type}</span><span className="text-gray-500 truncate max-w-[150px]">{exp.note}</span></div><span className="font-bold text-red-500">-{formatCurrency(exp.value)}</span>
+                                           </div>
+                                       ))
+                                   )}
+                               </div>
+                           )}
+                       </div>
+                   </div>
+               )})}
+           </div>
+        )}
 
-        {/* --- VISTA: FACTURA FINAL (RECREACIÓN DEL PDF) --- */}
+        {view === 'history' && (
+           <div className="pb-20 space-y-3 animate-in slide-in-from-right duration-200">
+             <div className="bg-white p-4 rounded-xl border border-gray-200 mb-2"><h2 className="font-bold text-lg">Historial de Ventas</h2><p className="text-xs text-gray-500">{salesHistory.length} facturas generadas</p></div>
+             {salesHistory.map(sale => (
+                 <div key={sale.id} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex justify-between items-center cursor-pointer relative" onClick={() => {setCurrentInvoice(sale); setView('invoice')}}>
+                    <div><div className="font-bold text-gray-800">{sale.client.name}</div><div className="text-xs text-gray-500">{sale.date} • Fact #{sale.invoiceNumber}</div></div>
+                    <div className="flex items-center gap-3"><div className="font-black text-gray-900">{formatCurrency(sale.total)}</div><button onClick={(e) => deleteInvoice(sale.id, e)} className="p-2 text-red-300 hover:text-red-500 z-10"><Trash2 size={18}/></button></div>
+                 </div>
+             ))}
+           </div>
+        )}
+
+        {view === 'wallet' && (
+           <div className="pb-20 space-y-4 animate-in fade-in duration-300">
+             <div className="bg-gradient-to-r from-gray-900 to-gray-800 text-white p-8 rounded-2xl shadow-xl text-center relative overflow-hidden">
+                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-green-400 to-blue-500"></div>
+                 <p className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-2 flex items-center justify-center gap-2"><TrendingUp size={14}/> Balance General Estimado</p>
+                 <h2 className="text-5xl font-black tracking-tight">{formatCurrency(totalGlobalSales - totalGlobalExpenses)}</h2>
+                 <p className="text-xs text-gray-500 mt-2">Ventas Totales - Gastos Totales</p>
+             </div>
+             <div className="grid grid-cols-2 gap-4">
+                 <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-xs font-bold text-gray-400 uppercase mb-1">Ingresos</p><p className="text-2xl font-bold text-green-600">{formatCurrency(totalGlobalSales)}</p></div>
+                 <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm"><p className="text-xs font-bold text-gray-400 uppercase mb-1">Gastos</p><p className="text-2xl font-bold text-red-500">{formatCurrency(totalGlobalExpenses)}</p></div>
+             </div>
+             <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                 <h3 className="text-xs font-bold text-gray-700 uppercase mb-3">Últimos Gastos Globales</h3>
+                 {tripExpenses.length === 0 && tripHistory.length === 0 ? <p className="text-xs text-gray-400">Sin registros recientes.</p> : (
+                   <div className="space-y-2">{[...tripExpenses, ...tripHistory.flatMap(t => t.expensesList || [])].sort((a,b) => b.id - a.id).slice(0, 5).map(g => (<div key={g.id} className="flex justify-between text-sm border-b border-gray-50 last:border-0 pb-2"><div><span className="font-bold text-gray-700 block">{g.type}</span><span className="text-[10px] text-gray-400">{g.note || new Date(g.id).toLocaleDateString()}</span></div><span className="font-bold text-red-500">-{formatCurrency(g.value)}</span></div>))}</div>
+                 )}
+             </div>
+             <div className="bg-white p-4 rounded-xl border border-gray-200">
+                 <button onClick={() => setShowConfig(!showConfig)} className="flex items-center gap-2 text-gray-500 font-bold text-sm w-full justify-between"><span className="flex items-center gap-2"><Settings size={16}/> Configuración</span><ArrowLeft size={16} className={`transition-transform ${showConfig ? '-rotate-90' : 'rotate-180'}`}/></button>
+                 {showConfig && (<div className="bg-gray-50 p-4 rounded-lg mt-4 animate-in slide-in-from-top-2"><p className="text-xs text-gray-600 mb-2">Último consecutivo: <strong>{invoiceCounter}</strong></p><div className="flex gap-2"><input type="number" placeholder="Nuevo valor" className="p-2 border rounded w-full text-sm" value={tempCounter} onChange={e => setTempCounter(e.target.value)} /><button onClick={updateCounter} className="bg-blue-600 text-white px-4 rounded font-bold text-sm">Guardar</button></div></div>)}
+                 {/* BOTÓN DE BACKUP (COPIA DE SEGURIDAD) */}
+                 {showConfig && (
+                    <div className="bg-gray-50 p-4 rounded-lg mt-4 animate-in slide-in-from-top-2 space-y-4">
+                        <hr className="border-gray-200"/>
+                        <div>
+                            <p className="text-xs text-gray-600 mb-2 font-bold">Seguridad de Datos</p>
+                            <button 
+                                onClick={() => {
+                                    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(localStorage));
+                                    const downloadAnchorNode = document.createElement('a');
+                                    downloadAnchorNode.setAttribute("href", dataStr);
+                                    downloadAnchorNode.setAttribute("download", "visceras_jr_backup_" + new Date().toLocaleDateString().replace(/\//g, "-") + ".json");
+                                    document.body.appendChild(downloadAnchorNode);
+                                    downloadAnchorNode.click();
+                                    downloadAnchorNode.remove();
+                                }}
+                                className="w-full bg-gray-700 text-white p-3 rounded-lg flex items-center justify-center gap-2 text-sm font-bold active:scale-95"
+                            >
+                                <Save size={16}/> DESCARGAR COPIA DE SEGURIDAD
+                            </button>
+                            <p className="text-[10px] text-gray-400 mt-1 text-center">Guarda este archivo por si se borra el celular.</p>
+                        </div>
+                    </div>
+                )}
+             </div>
+           </div>
+        )}
+
+        {/* VISTA: FACTURA */}
         {view === 'invoice' && currentInvoice && (
-          <div className="bg-white min-h-screen text-xs relative">
-            
-            {/* Botones de acción (No se imprimen) */}
-            <div className="print:hidden p-4 bg-gray-100 flex gap-2 flex-col fixed bottom-0 w-full left-0 z-50 border-t border-gray-300">
-               <button onClick={handlePrint} className="bg-blue-600 text-white py-4 rounded-xl font-bold shadow-lg text-lg flex justify-center items-center gap-2"><Printer/> IMPRIMIR FACTURA</button>
-               <div className="flex gap-2">
-                  <button onClick={() => setView('home')} className="flex-1 bg-white border border-gray-300 py-3 rounded-lg font-bold text-gray-600">Volver al Menú</button>
-                  <button onClick={() => window.location.reload()} className="px-4 bg-red-100 text-red-600 rounded-lg font-bold border border-red-200 text-[10px] text-center">Limpiar<br/>Memoria</button>
-               </div>
-            </div>
-
-            {/* DISEÑO FACTURA IMPRESA */}
-            <div className="p-2 sm:p-4 print:p-0 max-w-[80mm] mx-auto print:max-w-none print:w-full min-h-screen print:min-h-0 relative">
-               
-               {/* --- MARCA DE AGUA --- */}
-               <div className="absolute inset-0 flex items-center justify-center opacity-5 print:opacity-10 z-0 pointer-events-none">
-                   <img src={DATOS_EMPRESA.logoPath} alt="JR" className="w-1/2 h-auto object-contain max-w-[100px]"/>
-               </div>
-
-               <div className="relative z-10 text-[10px]">
-                   {/* --- FIX FACTURA PDF: ENCABEZADO --- */}
-                   <div className="text-center pb-2 mb-2 pt-2">
-                       <img src={DATOS_EMPRESA.logoPath} alt="JR Logo" className="w-10 h-10 mx-auto mb-1"/>
-                       <h1 className="text-sm font-black italic tracking-tighter">{DATOS_EMPRESA.nombre}</h1>
-                       <p className="text-[8px] font-bold">{DATOS_EMPRESA.propietario}</p>
-                       <p className="text-[8px]">Nit: {DATOS_EMPRESA.nit}</p>
-                       <p className="text-[8px]">{DATOS_EMPRESA.responsabilidad}</p>
-                       <p className="text-[8px]">{DATOS_EMPRESA.direccion} Cele: {DATOS_EMPRESA.tel1}/{DATOS_EMPRESA.tel2}</p>
-                       <p className="text-[8px]">{DATOS_EMPRESA.ciudad}</p>
-                   </div>
+           <div className="fixed inset-0 bg-white z-50 flex flex-col h-full print:absolute print:inset-0 print:h-auto print:w-full print:z-[100] print:bg-white print:overflow-visible">
+             
+             {/* HEADER FIJO EN PANTALLA (Se oculta al imprimir) */}
+             <div className="flex-none bg-white p-4 shadow-sm flex justify-between items-center border-b print:hidden">
+                 <button onClick={() => setView('history')} className="flex items-center gap-1 font-bold text-gray-600"><ArrowLeft size={20}/> Volver</button>
+                 <span className="font-bold text-gray-800">Vista Previa</span>
+                 <div className="w-8"></div>
+             </div>
+             
+             {/* CUERPO SCROLLABLE (FACTURA) */}
+             <div className="flex-1 overflow-y-auto p-2 bg-gray-100 print:overflow-visible print:h-auto print:bg-white print:p-0 print:block">
+                 
+                 <div className="bg-white shadow-lg p-4 md:p-8 mx-auto max-w-2xl print:shadow-none print:w-full print:max-w-none print:p-0 print:m-0 relative overflow-hidden" style={{fontFamily: 'Arial, sans-serif'}}>
                    
-                   <div className="border-t border-b border-black py-1 mb-2 font-black text-center">
-                       FACTURA DE VENTA {currentInvoice.invoiceNumber}
+                   {/* 💧 MARCA DE AGUA (FONDO) */}
+                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{zIndex: 0}}>
+                      <img src="/logo-jr.png" alt="watermark" className="w-[500px] opacity-10" onError={(e) => e.target.style.display='none'}/>
                    </div>
 
-                   {/* INFO CLIENTE */}
-                   <div className="mb-2">
-                       <div className="flex justify-between">
-                           <p>Señor(es): <span className="font-bold">{currentInvoice.client.name.toUpperCase()}</span></p>
-                           <p className="font-bold">{currentInvoice.paymentMethod === 'Credito' ? '☐ Crédito' : '☐ Contado'}</p>
-                       </div>
-                       <div className="flex justify-between">
-                            <p>C.C. o Nit: <span className="font-bold">{currentInvoice.client.id || 'N/A'}</span></p>
-                            <p className="font-bold">FECHA EMISIÓN: {currentInvoice.date}</p>
-                       </div>
-                       <div className="flex justify-between">
-                           <p>Dirección: <span className="font-bold">{currentInvoice.client.address || 'N/A'}</span></p>
-                           {currentInvoice.paymentMethod === 'Credito' && <p className="font-bold">FECHA VENCIM.: {currentInvoice.dueDate}</p>}
-                       </div>
-                   </div>
+                   {/* CONTENIDO PRINCIPAL (Encima de la marca de agua) */}
+                   <div className="relative z-10">
+                        {/* ENCABEZADO */}
+                        <div className="flex justify-between items-start border-b-2 border-blue-900 pb-2 mb-2">
+                            <div className="w-20 h-20 md:w-24 md:h-24 relative mr-2">
+                                <img src="/logo-jr.png" alt="JR" className="w-full h-full object-contain" onError={(e) => {e.target.style.display='none';}}/>
+                            </div>
+                            <div className="flex-1 text-center">
+                                <h1 className="text-xl md:text-2xl font-black text-blue-900 uppercase leading-none tracking-tighter">EXPENDIO DE VÍSCERAS JR.</h1>
+                                <h2 className="text-xs md:text-sm font-bold text-gray-800 mt-1 uppercase">ROMULO JIMENEZ ROA</h2>
+                                <p className="text-xs md:text-sm font-bold text-gray-700">Nit: 79.989.335 - 4</p>
+                                <p className="text-[10px] md:text-xs text-gray-600 font-bold">No Responsable IVA</p>
+                                <p className="text-[8px] md:text-[10px] text-gray-600 mt-1">Cra 22 No. 25B - 17 Sur * Cels: 312 300 8386 / 317 218 4533 Neiva - Huila</p>
+                            </div>
+                        </div>
 
-                   {/* --- FIX FACTURA PDF: TABLA DE PRODUCTOS --- */}
-                   <table className="w-full text-left text-[9px] mb-2 border-collapse">
-                      <thead>
-                        <tr className="border-t border-b border-black bg-gray-100">
-                          <th className="py-1 text-center w-1/5">CANT. (KG)</th>
-                          <th className="py-1 w-2/5">DETALLE</th>
-                          <th className="text-right py-1 w-1/5">V. UNIT.</th>
-                          <th className="text-right py-1 w-1/5">VR. TOTAL</th>
-                        </tr>
-                      </thead>
-                      <tbody className="font-medium">
-                        {currentInvoice.items.map((item, index) => (
-                          <tr key={index} className="border-b border-gray-200">
-                            <td className="py-1 text-center font-bold">{item.weight}</td>
-                            <td className="py-1 uppercase">{item.product}</td>
-                            <td className="text-right py-1">{formatCurrency(item.price)}</td>
-                            <td className="text-right py-1">{formatCurrency(item.total)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                   </table>
+                        {/* CAJA DE DATOS */}
+                        <div className="border border-blue-900 mb-2 flex text-[10px] md:text-xs">
+                            <div className="border-r border-blue-900 p-1 flex-1">
+                                <div className="bg-blue-900 text-white font-bold px-1 text-center text-[8px] print:text-black print:bg-transparent print:border-b print:border-gray-300">FECHA EMISIÓN</div>
+                                <div className="text-center font-bold py-1">{currentInvoice.date}</div>
+                                <div className="text-center text-[8px] text-gray-500">{currentInvoice.time}</div>
+                            </div>
+                            <div className="border-r border-blue-900 p-1 flex-1">
+                                <div className="bg-blue-900 text-white font-bold px-1 text-center text-[8px] print:text-black print:bg-transparent print:border-b print:border-gray-300">FECHA VENCIM.</div>
+                                <div className="text-center font-bold py-1">{currentInvoice.dueDate || '-'}</div>
+                            </div>
+                            <div className="border-r border-blue-900 p-1 flex-[1.5] flex flex-col justify-center px-1">
+                                <div className="flex items-center gap-1 mb-1">
+                                    <div className="w-3 h-3 border border-black flex items-center justify-center text-[8px] font-bold leading-none">{currentInvoice.paymentMethod === 'Contado' && 'X'}</div>
+                                    <span className="font-bold">Contado</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    <div className="w-3 h-3 border border-black flex items-center justify-center text-[8px] font-bold leading-none">{currentInvoice.paymentMethod === 'Credito' && 'X'}</div>
+                                    <span className="font-bold">Crédito</span>
+                                </div>
+                            </div>
+                            <div className="p-1 flex-[1.5] text-center flex flex-col justify-center">
+                                <div className="font-bold text-blue-900 text-[10px]">FACTURA DE VENTA</div>
+                                <div className="text-xl md:text-2xl font-black text-red-600 leading-none">{currentInvoice.invoiceNumber}</div>
+                            </div>
+                        </div>
 
-                   {/* --- NUEVO: TEXTO LEGAL DE TRANSPORTE --- */}
-                   <div className="mt-4 mb-4 border-t border-b border-gray-300 py-2 leading-tight text-[9px] text-gray-700">
-                       <p>Para **{currentInvoice.client.name.toUpperCase()}** con destino a **{currentInvoice.transport.destino || 'N/A'}**, es transportado en el vehículo con **placas {currentInvoice.transport.placa || 'N/A'}** color **{currentInvoice.transport.color || 'N/A'}**, es conducido por el señor **{currentInvoice.transport.conductor || 'N/A'}**, identificado con cédula de ciudadanía **N° {currentInvoice.transport.cc || 'N/A'}**.</p>
-                   </div>
+                        {/* DATOS CLIENTE */}
+                        <div className="mb-4 text-[10px] md:text-xs font-bold text-gray-800 leading-relaxed border-b pb-2">
+                            <div className="flex"><span className="w-16 md:w-20">Señor(es):</span><span className="flex-1 uppercase ml-1">{currentInvoice.client.name}</span></div>
+                            <div className="flex mt-1"><span className="w-16 md:w-20">C.C. o Nit:</span><span className="flex-1 ml-1">{currentInvoice.client.id}</span><span className="w-8">Tel:</span><span className="w-24">{currentInvoice.client.phone}</span></div>
+                            <div className="flex mt-1"><span className="w-16 md:w-20">Dirección:</span><span className="flex-1 ml-1">{currentInvoice.client.address}</span></div>
+                        </div>
 
+                        {/* TABLA DE PRODUCTOS */}
+                        <div className="border border-blue-900 mb-2 min-h-[250px] relative">
+                            <div className="flex bg-blue-900 text-white text-[10px] md:text-xs font-bold text-center print:text-black print:bg-gray-100 print:border-b print:border-black">
+                                <div className="w-10 md:w-12 py-1 border-r border-white print:border-black">CANT.</div>
+                                <div className="flex-1 py-1 border-r border-white print:border-black">DETALLE</div>
+                                <div className="w-20 md:w-24 py-1 border-r border-white print:border-black">V. UNIT.</div>
+                                <div className="w-20 md:w-24 py-1">VR. TOTAL</div>
+                            </div>
+                            {currentInvoice.items.map((item, i) => (
+                                <div key={i} className="flex text-[10px] md:text-xs border-b border-gray-200 print:border-gray-300">
+                                    <div className="w-10 md:w-12 py-1 text-center border-r border-blue-900 print:border-gray-300">{item.weight}</div>
+                                    <div className="flex-1 py-1 px-1 border-r border-blue-900 uppercase truncate print:border-gray-300">{item.product}</div>
+                                    <div className="w-20 md:w-24 py-1 text-right px-1 border-r border-blue-900 print:border-gray-300">{formatCurrency(item.price)}</div>
+                                    <div className="w-20 md:w-24 py-1 text-right px-1 font-bold">{formatCurrency(item.total)}</div>
+                                </div>
+                            ))}
+                            
+                            <div className="absolute bottom-0 left-0 right-0 border-t-2 border-blue-900 flex text-xs md:text-sm font-bold print:relative print:mt-4 print:border-t-2 print:border-black">
+                                <div className="flex-1 p-1 text-right pr-2">TOTAL $</div>
+                                <div className="w-20 md:w-24 p-1 text-right border-l border-blue-900 bg-gray-100 print:border-black print:bg-transparent">{formatCurrency(currentInvoice.total)}</div>
+                            </div>
+                        </div>
 
-                   {/* --- FIX FACTURA PDF: TOTALES --- */}
-                   <div className="flex justify-end mb-4">
-                      <div className="text-right w-full sm:w-1/2">
-                        <div className="flex justify-between py-1 border-t border-black text-[11px] font-bold"><span>TOTAL $</span> <span>{formatCurrency(currentInvoice.total)}</span></div>
-                      </div>
-                   </div>
-                   
-                   {/* --- FIX FACTURA PDF: PIE LEGAL --- */}
-                   <div className="mt-8 pt-4 border-t border-dashed border-gray-400 text-center text-[8px] font-medium leading-relaxed">
-                        <p>La presente Factura de Venta es un título valor de conformidad a la Ley 1231 del 17 de 2008 y demás normas pertinentes del C.C.</p>
-                        <div className="flex justify-between mt-4">
-                            <div className="w-2/5 border-t border-black pt-1">Aceptada</div>
-                            <div className="w-2/5 border-t border-black pt-1">Vendedor</div>
+                        {/* --- 🚚 PÁRRAFO LEGAL DE TRANSPORTE (CONDICIONAL) --- */}
+                        {/* Solo aparece si currentInvoice.transport.destino tiene algo escrito */}
+                        {currentInvoice.transport && currentInvoice.transport.destino && (
+                            <div className="mb-8 text-[9px] md:text-[10px] text-justify leading-snug text-gray-700 bg-gray-50 border border-gray-200 p-2 rounded print:border-none print:bg-transparent print:p-0">
+                                Para <strong>{currentInvoice.client.name}</strong> con destino a <strong>{currentInvoice.transport.destino}</strong>, 
+                                es transportado en el vehículo con placas <strong>{currentInvoice.transport.placa || '___'}</strong> color <strong>{currentInvoice.transport.color || '___'}</strong>, 
+                                es conducido por el señor <strong>{currentInvoice.transport.conductor || '___'}</strong>, 
+                                identificado con cédula de ciudadanía Nº <strong>{currentInvoice.transport.cedulaConductor || '___'}</strong>.
+                            </div>
+                        )}
+
+                        {/* PIE Y FIRMAS */}
+                        <div className="text-[8px] md:text-[10px] text-justify leading-tight text-gray-600 mb-8 px-2">
+                            La presente Factura de Venta es un título valor de conformidad a la Ley 1231 del 17 de 2008 y demás normas pertinentes del C.C.
+                        </div>
+                        
+                        <div className="flex justify-between mt-12 px-4 text-[10px] md:text-xs font-bold text-gray-800 break-inside-avoid">
+                            <div className="text-center"><div className="w-32 md:w-48 border-t border-black mb-1"></div>Aceptada</div>
+                            <div className="text-center"><div className="w-32 md:w-48 border-t border-black mb-1"></div>Vendedor</div>
                         </div>
                    </div>
+                 </div>
+             </div>
 
-               </div>
-            </div>
-          </div>
+             {/* FOOTER FIJO CON BOTONES (Se oculta al imprimir) */}
+             <div className="flex-none bg-white p-4 border-t border-gray-200 flex flex-col gap-3 print:hidden shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-50">
+                 <button onClick={() => {
+                     let msg = `*VÍSCERAS JR* 🐮\nFactura #${currentInvoice.invoiceNumber}\nCliente: ${currentInvoice.client.name}\nTOTAL: ${formatCurrency(currentInvoice.total)}\n(Ver PDF adjunto para detalles)`;
+                     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+                 }} className="w-full py-3 bg-green-500 text-white font-bold rounded-xl flex justify-center gap-2 shadow-sm active:scale-95 transition-transform"><Share2 size={20}/> Compartir WhatsApp</button>
+                 
+                 <button onClick={handlePrint} className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl flex justify-center gap-2 shadow-sm active:scale-95 transition-transform"><Printer size={20}/> Imprimir / PDF</button>
+             </div>
+           </div>
         )}
-        
+
       </main>
     </div>
   );
