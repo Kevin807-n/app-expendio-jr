@@ -3,7 +3,7 @@ import {
   Save, Share2, Plus, Trash2, History, FileText, ArrowLeft, 
   Truck, CheckCircle, Calculator, MapPin, Navigation, 
   DollarSign, Coffee, Wrench, Fuel, Bed, AlertTriangle, Printer, 
-  Users, UserPlus, Edit, UserCog, X, Search, Settings, Map, TrendingUp, Package, Calendar, Clock, MapPinned, PauseCircle, PlayCircle, CreditCard, Banknote, ChevronDown, ChevronUp, Car
+  Users, UserPlus, Edit, UserCog, X, Search, Settings, Map, TrendingUp, Package, Calendar, Clock, MapPinned, PauseCircle, PlayCircle, CreditCard, Banknote, ChevronDown, ChevronUp, Car, Smartphone
 } from 'lucide-react';
 
 // --- HOOK DE GUARDADO SEGURO ---
@@ -33,7 +33,7 @@ function useLocalStorage(key, initialValue) {
 
 // --- DATOS INICIALES ---
 const PRODUCTOS_COMUNES = [
-  "Hígado", "Mondongo", "Chunchullo", "Riñón", "Pajarilla", "Lenguas", "Bofe", "Corazón", "Ubre", "Malaya", 
+  "Hígado", "Mondongo", "Chunchullo", "Riñón", "Cuajos", "Pajarilla", "Lenguas", "Bofe", "Corazón", "Ubre", "Malaya", 
   "Chocosuela", "Hueso", "Orejas", "Pezuña", "Tocino", 
   "Bofe Cerdo", "Corazón de Cerdo", "Carne", "Pata de Res", "Buches", "Tripita", "Entresijos"
 ];
@@ -72,18 +72,21 @@ const App = () => {
   });
 
   const [pendingSales, setPendingSales] = useLocalStorage('meatAppPendingSalesV22', []);
-  const [paymentMethod, setPaymentMethod] = useState('Contado');
+  
+  // --- NUEVOS ESTADOS DE PAGO ---
+  const [paymentCondition, setPaymentCondition] = useState('Contado'); // Contado vs Credito
+  const [paymentMethod, setPaymentMethod] = useState('Efectivo'); // Efectivo vs Transferencia
 
   // ESTADOS TEMPORALES
   const [editingClient, setEditingClient] = useState(null);
   const [currentInvoice, setCurrentInvoice] = useState(null);
   const [expandedTripId, setExpandedTripId] = useState(null);
+  const [showExpenseModal, setShowExpenseModal] = useState(false);
   
   // Inputs
   const [selectedProduct, setSelectedProduct] = useState('');
   const [weight, setWeight] = useState('');
   const [price, setPrice] = useState('');
-  // Estado para el nuevo gasto (Por defecto ACPM seleccionado)
   const [newExpense, setNewExpense] = useState({ type: 'ACPM', value: '', note: '' });
   
   const [newRoute, setNewRoute] = useState({ nombre: '', origen: '', destino: '', distancia: '' });
@@ -126,7 +129,6 @@ const App = () => {
     if (cart.length === 0) return alert("Carrito vacío");
     if (!client.name.trim()) return alert("Falta nombre del cliente");
     
-    // Si hay placa pero no destino, advertimos, pero permitimos seguir si el usuario quiere
     if (transportInfo.placa && !transportInfo.destino) {
         if(!window.confirm("Pusiste placa pero no Destino. ¿Seguro?")) return;
     }
@@ -135,7 +137,7 @@ const App = () => {
     const now = new Date();
     
     let formattedDueDate = "-"; 
-    if (paymentMethod === 'Credito') {
+    if (paymentCondition === 'Credito') {
         const dueDateObj = new Date(now);
         dueDateObj.setDate(dueDateObj.getDate() + 30); 
         formattedDueDate = dueDateObj.toLocaleDateString('es-CO');
@@ -147,7 +149,8 @@ const App = () => {
       date: now.toLocaleDateString('es-CO'),
       dueDate: formattedDueDate,
       time: now.toLocaleTimeString('es-CO', {hour: '2-digit', minute:'2-digit', hour12: true}),
-      paymentMethod: paymentMethod,
+      paymentCondition: paymentCondition, // Contado / Credito
+      paymentMethod: paymentMethod, // Efectivo / Transferencia
       client: { ...client },
       transport: { ...transportInfo }, 
       items: [...cart],
@@ -161,10 +164,11 @@ const App = () => {
     
     setCart([]);
     setClient({ name: '', id: '', address: '', phone: '' });
-    // Limpiamos datos transporte para evitar errores en la siguiente venta
     setTransportInfo({ destino: '', conductor: '', cedulaConductor: '', placa: '', color: '' });
     
-    setPaymentMethod('Contado'); 
+    // Reseteamos a valores por defecto
+    setPaymentCondition('Contado'); 
+    setPaymentMethod('Efectivo');
     setView('invoice');
   };
 
@@ -204,11 +208,9 @@ const App = () => {
   const addCargo = () => { if(!cargoItem.product || !cargoItem.weight) return alert("Faltan datos"); const newLoad = [...(activeTrip.cargo || []), { ...cargoItem, id: Date.now() }]; setActiveTrip({ ...activeTrip, cargo: newLoad }); setCargoItem({ product: '', weight: '' }); };
   const removeCargo = (id) => { const newLoad = activeTrip.cargo.filter(c => c.id !== id); setActiveTrip({ ...activeTrip, cargo: newLoad }); };
   
-  // --- FUNCIÓN AGREGAR GASTO AJUSTADA ---
   const addExpense = () => { 
       if (!newExpense.value) return alert("Ingresa valor"); 
       setTripExpenses([{ id: Date.now(), type: newExpense.type, value: parseFloat(newExpense.value), note: newExpense.note, time: new Date().toLocaleTimeString('es-CO', {hour: '2-digit', minute:'2-digit'}) }, ...tripExpenses]); 
-      // Reseteamos valores pero mantenemos el tipo seleccionado para rapidez
       setNewExpense({ ...newExpense, value: '', note: '' }); 
   };
 
@@ -384,14 +386,32 @@ const App = () => {
                   <span className="text-3xl font-black">{formatCurrency(calculateTotalSale())}</span>
                 </div>
                 
-                {/* SELECTOR DE PAGO */}
-                <div className="bg-gray-800 p-2 rounded-lg mb-4 flex gap-2">
-                    <button onClick={() => setPaymentMethod('Contado')} className={`flex-1 py-2 rounded font-bold text-xs flex items-center justify-center gap-2 ${paymentMethod === 'Contado' ? 'bg-green-500 text-white' : 'bg-gray-700 text-gray-400'}`}>
-                        <Banknote size={16}/> CONTADO
-                    </button>
-                    <button onClick={() => setPaymentMethod('Credito')} className={`flex-1 py-2 rounded font-bold text-xs flex items-center justify-center gap-2 ${paymentMethod === 'Credito' ? 'bg-orange-500 text-white' : 'bg-gray-700 text-gray-400'}`}>
-                        <CreditCard size={16}/> CRÉDITO (30 DÍAS)
-                    </button>
+                {/* SELECTOR DE PAGO MEJORADO */}
+                <div className="space-y-2 mb-4">
+                    {/* Fila 1: CONDICIÓN (Plazo) */}
+                    <div className="flex gap-2 bg-gray-800 p-1 rounded-lg">
+                        <button onClick={() => setPaymentCondition('Contado')} className={`flex-1 py-2 rounded font-bold text-xs flex items-center justify-center gap-2 transition-all ${paymentCondition === 'Contado' ? 'bg-green-500 text-white shadow' : 'text-gray-400 hover:text-white'}`}>
+                            <Banknote size={16}/> CONTADO
+                        </button>
+                        <button onClick={() => setPaymentCondition('Credito')} className={`flex-1 py-2 rounded font-bold text-xs flex items-center justify-center gap-2 transition-all ${paymentCondition === 'Credito' ? 'bg-orange-500 text-white shadow' : 'text-gray-400 hover:text-white'}`}>
+                            <CreditCard size={16}/> CRÉDITO
+                        </button>
+                    </div>
+
+                    {/* Fila 2: MEDIO DE PAGO (Dinero) */}
+                    <div className="flex gap-2 items-center">
+                        <span className="text-xs text-gray-400 font-bold uppercase w-16">Medio:</span>
+                        <select 
+                            value={paymentMethod} 
+                            onChange={(e) => setPaymentMethod(e.target.value)} 
+                            className="flex-1 bg-gray-800 text-white text-sm p-2 rounded border border-gray-700 outline-none"
+                        >
+                            <option value="Efectivo">💵 Efectivo</option>
+                            <option value="Transferencia">📱 Transferencia / Nequi</option>
+                            <option value="Tarjeta">💳 Tarjeta</option>
+                            <option value="Otro">🏳️ Otro</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div className="max-h-40 overflow-y-auto space-y-2 mb-4">
@@ -719,30 +739,64 @@ const App = () => {
                             </div>
                         </div>
 
-                        {/* CAJA DE DATOS */}
-                        <div className="border border-blue-900 mb-2 flex text-[10px] md:text-xs">
-                            <div className="border-r border-blue-900 p-1 flex-1">
-                                <div className="bg-blue-900 text-white font-bold px-1 text-center text-[8px] print:text-black print:bg-transparent print:border-b print:border-gray-300">FECHA EMISIÓN</div>
-                                <div className="text-center font-bold py-1">{currentInvoice.date}</div>
-                                <div className="text-center text-[8px] text-gray-500">{currentInvoice.time}</div>
-                            </div>
-                            <div className="border-r border-blue-900 p-1 flex-1">
-                                <div className="bg-blue-900 text-white font-bold px-1 text-center text-[8px] print:text-black print:bg-transparent print:border-b print:border-gray-300">FECHA VENCIM.</div>
-                                <div className="text-center font-bold py-1">{currentInvoice.dueDate || '-'}</div>
-                            </div>
-                            <div className="border-r border-blue-900 p-1 flex-[1.5] flex flex-col justify-center px-1">
-                                <div className="flex items-center gap-1 mb-1">
-                                    <div className="w-3 h-3 border border-black flex items-center justify-center text-[8px] font-bold leading-none">{currentInvoice.paymentMethod === 'Contado' && 'X'}</div>
-                                    <span className="font-bold">Contado</span>
+                        {/* CAJA DE DATOS (REDISEÑADA V10.4) */}
+                        <div className="border border-blue-900 mb-2 flex flex-col text-[10px] md:text-xs">
+                            
+                            {/* FILA SUPERIOR: FECHAS Y NUMERO */}
+                            <div className="flex border-b border-blue-900">
+                                <div className="border-r border-blue-900 p-1 flex-1">
+                                    <div className="bg-blue-900 text-white font-bold px-1 text-center text-[8px] print:text-black print:bg-transparent print:border-b print:border-gray-300">FECHA EMISIÓN</div>
+                                    <div className="text-center font-bold py-1">{currentInvoice.date} <span className="text-[8px] font-normal text-gray-500">{currentInvoice.time}</span></div>
                                 </div>
-                                <div className="flex items-center gap-1">
-                                    <div className="w-3 h-3 border border-black flex items-center justify-center text-[8px] font-bold leading-none">{currentInvoice.paymentMethod === 'Credito' && 'X'}</div>
-                                    <span className="font-bold">Crédito</span>
+                                <div className="border-r border-blue-900 p-1 flex-1">
+                                    <div className="bg-blue-900 text-white font-bold px-1 text-center text-[8px] print:text-black print:bg-transparent print:border-b print:border-gray-300">FECHA VENCIM.</div>
+                                    <div className="text-center font-bold py-1">{currentInvoice.dueDate || '-'}</div>
+                                </div>
+                                <div className="p-1 flex-[1.5] text-center flex flex-col justify-center">
+                                    <div className="font-bold text-blue-900 text-[10px]">FACTURA DE VENTA</div>
+                                    <div className="text-xl md:text-2xl font-black text-red-600 leading-none">{currentInvoice.invoiceNumber}</div>
                                 </div>
                             </div>
-                            <div className="p-1 flex-[1.5] text-center flex flex-col justify-center">
-                                <div className="font-bold text-blue-900 text-[10px]">FACTURA DE VENTA</div>
-                                <div className="text-xl md:text-2xl font-black text-red-600 leading-none">{currentInvoice.invoiceNumber}</div>
+
+                            {/* FILA INFERIOR: CONDICION Y MEDIO PAGO (NUEVO) */}
+                            <div className="flex">
+                                {/* COLUMNA 1: FORMA DE PAGO (CONTADO/CREDITO) */}
+                                <div className="border-r border-blue-900 p-1 flex-1">
+                                    <div className="font-bold text-blue-900 text-[8px] mb-1">CONDICIÓN DE PAGO:</div>
+                                    <div className="flex items-center gap-4 px-2">
+                                        <div className="flex items-center gap-1">
+                                            <div className="w-3 h-3 border border-black flex items-center justify-center text-[8px] font-bold leading-none">{currentInvoice.paymentCondition === 'Contado' && 'X'}</div>
+                                            <span>Contado</span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <div className="w-3 h-3 border border-black flex items-center justify-center text-[8px] font-bold leading-none">{currentInvoice.paymentCondition === 'Credito' && 'X'}</div>
+                                            <span>Crédito</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* COLUMNA 2: MEDIO DE PAGO (EFECTIVO/TRANSFERENCIA) */}
+                                <div className="p-1 flex-[1.5]">
+                                    <div className="font-bold text-blue-900 text-[8px] mb-1">MEDIO DE PAGO:</div>
+                                    <div className="grid grid-cols-2 gap-x-2 gap-y-0 px-2">
+                                        <div className="flex items-center gap-1">
+                                            <div className="w-3 h-3 border border-black flex items-center justify-center text-[8px] font-bold leading-none">{currentInvoice.paymentMethod === 'Efectivo' && 'X'}</div>
+                                            <span>Efectivo</span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <div className="w-3 h-3 border border-black flex items-center justify-center text-[8px] font-bold leading-none">{currentInvoice.paymentMethod === 'Transferencia' && 'X'}</div>
+                                            <span>Transf/Nequi</span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <div className="w-3 h-3 border border-black flex items-center justify-center text-[8px] font-bold leading-none">{currentInvoice.paymentMethod === 'Tarjeta' && 'X'}</div>
+                                            <span>Tarjeta</span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <div className="w-3 h-3 border border-black flex items-center justify-center text-[8px] font-bold leading-none">{currentInvoice.paymentMethod === 'Otro' && 'X'}</div>
+                                            <span>Otro</span>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
