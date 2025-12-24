@@ -407,9 +407,7 @@ const App = () => {
                             className="flex-1 bg-gray-800 text-white text-sm p-2 rounded border border-gray-700 outline-none"
                         >
                             <option value="Efectivo">💵 Efectivo</option>
-                            <option value="Transferencia">📱 Transferencia / Nequi</option>
-                            <option value="Tarjeta">💳 Tarjeta</option>
-                            <option value="Otro">🏳️ Otro</option>
+                            <option value="Transferencia">📱 Consignado</option>
                         </select>
                     </div>
                 </div>
@@ -785,15 +783,7 @@ const App = () => {
                                         </div>
                                         <div className="flex items-center gap-1">
                                             <div className="w-3 h-3 border border-black flex items-center justify-center text-[8px] font-bold leading-none">{currentInvoice.paymentMethod === 'Transferencia' && 'X'}</div>
-                                            <span>Transf/Nequi</span>
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                            <div className="w-3 h-3 border border-black flex items-center justify-center text-[8px] font-bold leading-none">{currentInvoice.paymentMethod === 'Tarjeta' && 'X'}</div>
-                                            <span>Tarjeta</span>
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                            <div className="w-3 h-3 border border-black flex items-center justify-center text-[8px] font-bold leading-none">{currentInvoice.paymentMethod === 'Otro' && 'X'}</div>
-                                            <span>Otro</span>
+                                            <span>Consignado</span>
                                         </div>
                                     </div>
                                 </div>
