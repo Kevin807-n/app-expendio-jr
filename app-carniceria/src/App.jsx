@@ -33,7 +33,7 @@ function useLocalStorage(key, initialValue) {
 
 // --- DATOS INICIALES ---
 const PRODUCTOS_COMUNES = [
-  "Hígado", "Mondongo", "Chunchullo", "Riñón", "Cuajos", "Pajarilla", "Lenguas", "Bofe", "Corazón", "Ubre", "Malaya", 
+  "Hígado", "Mondongo", "Chunchullo", "Riñón", "Pajarilla", "Lenguas", "Bofe", "Corazón", "Ubre", "Malaya", 
   "Chocosuela", "Hueso", "Orejas", "Pezuña", "Tocino", 
   "Bofe Cerdo", "Corazón de Cerdo", "Carne", "Pata de Res", "Buches", "Tripita", "Entresijos"
 ];
@@ -73,9 +73,11 @@ const App = () => {
 
   const [pendingSales, setPendingSales] = useLocalStorage('meatAppPendingSalesV22', []);
   
-  // --- NUEVOS ESTADOS DE PAGO ---
+  // --- ESTADOS DE PAGO Y FECHA ---
   const [paymentCondition, setPaymentCondition] = useState('Contado'); // Contado vs Credito
-  const [paymentMethod, setPaymentMethod] = useState('Efectivo'); // Efectivo vs Transferencia
+  const [paymentMethod, setPaymentMethod] = useState(''); // VACÍO POR DEFECTO
+  // Inicializamos la fecha con la de HOY
+  const [saleDate, setSaleDate] = useState(new Date().toISOString().split('T')[0]);
 
   // ESTADOS TEMPORALES
   const [editingClient, setEditingClient] = useState(null);
@@ -134,23 +136,27 @@ const App = () => {
     }
 
     const nextInvoiceNumber = parseInt(invoiceCounter) + 1;
-    const now = new Date();
+    const now = new Date(); // Hora real
     
+    // --- LÓGICA DE FECHA EDITABLE ---
+    const [y, m, d] = saleDate.split('-').map(Number);
+    const selectedDateObj = new Date(y, m - 1, d); 
+
     let formattedDueDate = "-"; 
     if (paymentCondition === 'Credito') {
-        const dueDateObj = new Date(now);
+        const dueDateObj = new Date(selectedDateObj); 
         dueDateObj.setDate(dueDateObj.getDate() + 30); 
         formattedDueDate = dueDateObj.toLocaleDateString('es-CO');
     }
 
     const saleData = {
       id: Date.now(),
-      timestamp: Date.now(),
-      date: now.toLocaleDateString('es-CO'),
+      timestamp: selectedDateObj.getTime(), 
+      date: selectedDateObj.toLocaleDateString('es-CO'), 
       dueDate: formattedDueDate,
       time: now.toLocaleTimeString('es-CO', {hour: '2-digit', minute:'2-digit', hour12: true}),
-      paymentCondition: paymentCondition, // Contado / Credito
-      paymentMethod: paymentMethod, // Efectivo / Transferencia
+      paymentCondition: paymentCondition, 
+      paymentMethod: paymentMethod, 
       client: { ...client },
       transport: { ...transportInfo }, 
       items: [...cart],
@@ -166,9 +172,9 @@ const App = () => {
     setClient({ name: '', id: '', address: '', phone: '' });
     setTransportInfo({ destino: '', conductor: '', cedulaConductor: '', placa: '', color: '' });
     
-    // Reseteamos a valores por defecto
     setPaymentCondition('Contado'); 
-    setPaymentMethod('Efectivo');
+    setPaymentMethod(''); // Reseteamos a vacío
+    setSaleDate(new Date().toISOString().split('T')[0]); // Volvemos a hoy
     setView('invoice');
   };
 
@@ -386,28 +392,42 @@ const App = () => {
                   <span className="text-3xl font-black">{formatCurrency(calculateTotalSale())}</span>
                 </div>
                 
-                {/* SELECTOR DE PAGO MEJORADO */}
-                <div className="space-y-2 mb-4">
+                {/* CONFIGURACIÓN DE PAGO Y FECHA */}
+                <div className="space-y-2 mb-4 bg-gray-800 p-3 rounded-xl border border-gray-700">
+                    {/* FECHA FACTURA (EDITABLE) */}
+                    <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-700">
+                        <Calendar size={16} className="text-gray-400"/>
+                        <span className="text-xs font-bold text-gray-300">Fecha Factura:</span>
+                        <input 
+                            type="date" 
+                            value={saleDate} 
+                            onChange={(e) => setSaleDate(e.target.value)}
+                            className="bg-gray-700 text-white text-sm p-1 rounded border border-gray-600 outline-none flex-1"
+                        />
+                    </div>
+
                     {/* Fila 1: CONDICIÓN (Plazo) */}
-                    <div className="flex gap-2 bg-gray-800 p-1 rounded-lg">
-                        <button onClick={() => setPaymentCondition('Contado')} className={`flex-1 py-2 rounded font-bold text-xs flex items-center justify-center gap-2 transition-all ${paymentCondition === 'Contado' ? 'bg-green-500 text-white shadow' : 'text-gray-400 hover:text-white'}`}>
+                    <div className="flex gap-2">
+                        <button onClick={() => setPaymentCondition('Contado')} className={`flex-1 py-2 rounded font-bold text-xs flex items-center justify-center gap-2 transition-all ${paymentCondition === 'Contado' ? 'bg-green-500 text-white shadow' : 'bg-gray-700 text-gray-400 hover:text-white'}`}>
                             <Banknote size={16}/> CONTADO
                         </button>
-                        <button onClick={() => setPaymentCondition('Credito')} className={`flex-1 py-2 rounded font-bold text-xs flex items-center justify-center gap-2 transition-all ${paymentCondition === 'Credito' ? 'bg-orange-500 text-white shadow' : 'text-gray-400 hover:text-white'}`}>
+                        <button onClick={() => setPaymentCondition('Credito')} className={`flex-1 py-2 rounded font-bold text-xs flex items-center justify-center gap-2 transition-all ${paymentCondition === 'Credito' ? 'bg-orange-500 text-white shadow' : 'bg-gray-700 text-gray-400 hover:text-white'}`}>
                             <CreditCard size={16}/> CRÉDITO
                         </button>
                     </div>
 
                     {/* Fila 2: MEDIO DE PAGO (Dinero) */}
                     <div className="flex gap-2 items-center">
-                        <span className="text-xs text-gray-400 font-bold uppercase w-16">Medio:</span>
+                        <span className="text-xs text-gray-400 font-bold uppercase w-12">Medio:</span>
                         <select 
                             value={paymentMethod} 
                             onChange={(e) => setPaymentMethod(e.target.value)} 
-                            className="flex-1 bg-gray-800 text-white text-sm p-2 rounded border border-gray-700 outline-none"
+                            className="flex-1 bg-gray-700 text-white text-sm p-2 rounded border border-gray-600 outline-none"
                         >
+                            <option value="">-- Ninguno --</option>
                             <option value="Efectivo">💵 Efectivo</option>
-                            <option value="Transferencia">📱 Consignado</option>
+                            <option value="Consignacion">📱 Consignación</option>
+                            <option value="Otro">🏳️ Otro</option>
                         </select>
                     </div>
                 </div>
@@ -429,7 +449,7 @@ const App = () => {
           </div>
         )}
 
-        {/* ... (CLIENTES se mantiene igual) ... */}
+        {/* ... (CLIENTES, TRIP, TRIP_HISTORY, HISTORY, WALLET se mantienen igual) ... */}
         {view === 'clients' && (
           <div className="pb-20 animate-in slide-in-from-right duration-200">
              {editingClient ? (
@@ -773,7 +793,7 @@ const App = () => {
                                     </div>
                                 </div>
 
-                                {/* COLUMNA 2: MEDIO DE PAGO (EFECTIVO/TRANSFERENCIA) */}
+                                {/* COLUMNA 2: MEDIO DE PAGO (EFECTIVO/CONSIGNACION) */}
                                 <div className="p-1 flex-[1.5]">
                                     <div className="font-bold text-blue-900 text-[8px] mb-1">MEDIO DE PAGO:</div>
                                     <div className="grid grid-cols-2 gap-x-2 gap-y-0 px-2">
@@ -782,8 +802,12 @@ const App = () => {
                                             <span>Efectivo</span>
                                         </div>
                                         <div className="flex items-center gap-1">
-                                            <div className="w-3 h-3 border border-black flex items-center justify-center text-[8px] font-bold leading-none">{currentInvoice.paymentMethod === 'Transferencia' && 'X'}</div>
-                                            <span>Consignado</span>
+                                            <div className="w-3 h-3 border border-black flex items-center justify-center text-[8px] font-bold leading-none">{currentInvoice.paymentMethod === 'Consignacion' && 'X'}</div>
+                                            <span>Consignación</span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <div className="w-3 h-3 border border-black flex items-center justify-center text-[8px] font-bold leading-none">{currentInvoice.paymentMethod === 'Otro' && 'X'}</div>
+                                            <span>Otro</span>
                                         </div>
                                     </div>
                                 </div>
